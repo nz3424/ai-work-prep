@@ -1,0 +1,42 @@
+# --- OS junk ---
+.DS_Store
+Thumbs.db
+
+# --- Secrets & credentials (never commit these) ---
+.env
+.env.*
+*.pem
+*.key
+*credentials*
+*secrets*
+*token*
+*.oauth
+composio.json
+.aws/
+.hermes/
+
+# --- Docker (docker-101, aws-deploy-demo) ---
+*.log
+.docker/
+
+# --- Node ---
+node_modules/
+npm-debug.log*
+dist/
+build/
+
+# --- Python ---
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# --- Terraform / IaC, if you end up using it for AWS ---
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# --- Editor ---
+.vscode/
+.idea/
