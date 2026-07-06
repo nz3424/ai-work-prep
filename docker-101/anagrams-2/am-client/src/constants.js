@@ -10,7 +10,8 @@ export const scores = {
 export const options = {
     method: 'GET',
     headers: {
-        'X-RapidAPI-Key': 'b274a32761msh9b9458310db65bfp1f0907jsn46cfa24f5e08',
+        // Set your own RapidAPI key here (or load from an env var) — do not commit real keys
+        'X-RapidAPI-Key': 'REPLACE_WITH_YOUR_RAPIDAPI_KEY',
         'X-RapidAPI-Host': 'wordsapiv1.p.rapidapi.com'
     }
 };
