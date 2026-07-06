@@ -1,0 +1,74 @@
+.play-now-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    width: 75%;
+}
+
+.game-mode-container {
+    display: flex;
+    flex-direction: row;
+    gap: 0.5rem;
+}
+
+.play-now-text {
+    font-size: 1rem;
+    color: white;
+}
+
+.select-container {
+    position: relative;
+}
+
+
+
+.select-container select {
+    background: var(--light-gray);
+    color: white;
+    border: none;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    width: 10rem;
+}
+
+select,
+::picker(select) {
+    appearance: base-select;
+}
+
+select {
+    border-radius: 0.5rem;
+}
+
+
+option {
+    display: flex;
+    justify-content: flex-start;
+    gap: 15px;
+    background: var(--secondary-text);
+    transition: 0.4s;
+    box-sizing: border-box;
+    color: black;
+}
+
+select :hover,
+select :focus {
+    background: var(--light-gray);
+    cursor: pointer;
+    color: white;
+}
+
+option:first-of-type {
+    border-radius: 0.5rem 0.5rem 0 0;
+}
+
+option:last-of-type {
+    border-radius: 0 0 0.5rem 0.5rem;
+}
+
+option:not(option:last-of-type) {
+    border-bottom: none;
+}

@@ -1,0 +1,1 @@
+export { default as GameLogCard } from "./GameLogCard";

@@ -1,0 +1,49 @@
+.challenges-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.5rem;
+    width: 85%;
+    max-height: 40vh;
+    overflow-y: scroll;
+    scrollbar-width: none;
+}
+
+.challenge-text {
+    font-size: 1rem;
+    color: white;
+    margin: 0;
+}
+
+.challenge-row {
+    display: flex;
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    border: 0.1rem solid var(--light-gray);
+    padding: 0.75rem;
+    border-radius: 0.75rem;
+    box-sizing: border-box;
+}
+
+.left-container {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+}
+
+.right-container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.challenge-subtext {
+    font-size: 0.75rem;
+    color: var(--secondary-text);
+    margin: 0;
+}

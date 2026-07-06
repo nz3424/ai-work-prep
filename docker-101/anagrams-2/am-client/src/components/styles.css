@@ -1,0 +1,398 @@
+button {
+    border-style: none;
+    font-family: 'Poppins', sans-serif;
+    border-radius: 0.5rem;
+    color: black;
+}
+
+button:hover {
+    background: var(--yellow)
+}
+
+span,
+p {
+    font-size: 1rem;
+    margin: 0.5rem;
+
+}
+
+.home-container {
+    width: 100vw;
+    height: 100vh;
+    overflow-y: scroll;
+    background: var(--black-bg);
+
+}
+
+.stats-text {
+    display: flex;
+    justify-content: space-between;
+    margin-inline: 5%;
+    color: white;
+}
+
+.main-login {
+    width: 100vw;
+    height: 100vh;
+    background: var(--black-bg);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    flex-direction: column;
+}
+
+
+.home-header {
+    position: absolute;
+    width: 100%;
+    background: var(--black-bg);
+    padding: 0 1rem;
+    height: 5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 1.5rem;
+    border-bottom: 1px solid var(--light-gray);
+    box-sizing: border-box;
+}
+
+
+.home-body {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 3rem;
+}
+
+.home-card {
+    width: 100%;
+    background: var(--gray);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 1.5rem;
+    border: 0.1rem solid var(--light-gray);
+    padding: 1rem 0;
+    box-sizing: border-box;
+}
+
+.home-grid-container {
+    padding-top: 7.5rem;
+    width: 30%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 2rem;
+}
+
+
+
+.user-headline {
+    color: white;
+    display: flex;
+    justify-content: right;
+    max-height: 100%;
+}
+
+.home-text.user {
+    margin-right: 1rem;
+    display: flex;
+    align-items: center;
+    background: var(--gray);
+    border-radius: 0.5rem;
+    padding: 0 0.5rem;
+}
+
+.home-text {
+    text-align: center;
+    color: white;
+    font-size: 1rem;
+}
+
+.play-icon:hover {
+    fill: var(--yellow);
+}
+
+.game-body {
+    width: 100vw;
+    height: 100vh;
+    background: var(--black-bg);
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+}
+
+.score-main {
+    color: white;
+    margin-top: .5vw;
+}
+
+.score-val {
+    font-weight: 800;
+}
+
+.time {
+    color: white;
+    margin-top: .5vw;
+
+}
+
+.flex-letters {
+    display: flex;
+    width: 75vw;
+    justify-content: space-between;
+    align-items: center;
+    flex-direction: row;
+    margin: 3vh 2vw;
+}
+
+.display-letter {
+    background-color: var(--light-gray);
+    height: 13vw;
+    width: 12vw;
+    border-radius: 4vw;
+}
+
+
+.active-display-letter {
+    background-color: var(--yellow);
+    height: 13vw;
+    width: 12vw;
+    border-radius: 3.5vw;
+    font-size: 8vw;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 100ms ease-in;
+    text-align: center;
+
+}
+
+
+.input-letter {
+    background-color: var(--gray);
+    height: 7vw;
+    width: 12vw;
+    border-radius: 2.5vw;
+    font-weight: 800;
+}
+
+.active-input-letter {
+    background-color: var(--yellow);
+    height: 7vw;
+    width: 12vw;
+    border-radius: 2.5vw;
+    font-size: 3rem;
+    font-weight: 800;
+    cursor: pointer;
+    text-align: center;
+    transition: all 100ms ease-in;
+
+}
+
+.active-display-letter:hover,
+.active-input-letter:hover {
+    outline: solid 2px var(--dark-yellow);
+    box-shadow: inset 3px 3px 0.4px var(--dark-yellow);
+}
+
+.actions {
+    width: 20vw;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    margin-bottom: 1vw;
+}
+
+.submit {
+    background-color: var(--light-gray);
+    height: 8vh;
+    width: 8vw;
+    border-radius: 2vw;
+    font-size: 1rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.backspace {
+    background-color: var(--light-gray);
+    height: 8vh;
+    width: 8vw;
+    border-radius: 2vw;
+    font-size: 1rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.shuffle {
+    background-color: var(--light-gray);
+    height: 8vh;
+    width: 8vw;
+    border-radius: 2vw;
+    font-size: 1rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.shuffle:hover {
+    background: var(--yellow);
+    transition: all 200ms ease-in;
+}
+
+
+.submit:hover {
+    background-color: var(--yellow);
+    transition: all 200ms ease-in;
+}
+
+.backspace:hover {
+    background-color: var(--yellow);
+    transition: all 200ms ease-in;
+}
+
+
+
+.feedback-inactive {
+    margin: 1vw 0 0 0;
+    width: 40%;
+    height: 5vh;
+    border-radius: 2vw;
+    background: var(--black-bg);
+    border: 1px var(--light-gray) solid;
+}
+
+.feedback-active {
+    margin: 1vw 0 0 0;
+    width: 40%;
+    height: 5vh;
+    border-radius: 2vw;
+    background: var(--yellow);
+    transition: all 100ms ease-in-out;
+    text-align: center;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.score-box {
+    background: var(--gray);
+    border-radius: 1.7vw;
+    margin-top: 5vh;
+    width: 38vw;
+    height: 6vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
+.score-box-text {
+    width: 75%;
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center;
+
+}
+
+.score-text {
+    padding: 2vw 0;
+    font-size: 1.5rem;
+    font-weight: 400;
+}
+
+.score-text-val {
+    padding-left: 0.5vw;
+    font-weight: 800;
+}
+
+.results {
+    background: var(--gray);
+    border-radius: 6vw;
+    margin-top: 2vh;
+    width: 40vw;
+    height: 80vh;
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    overflow: auto;
+    color: white;
+
+}
+
+.results::-webkit-scrollbar {
+    display: none;
+}
+
+.result-item {
+    display: flex;
+    width: 100%;
+    margin: 0.5vh 1vw;
+    justify-content: space-between;
+    font-size: 1.5rem;
+
+}
+
+.result-item:first-child {
+    margin-top: 5vh;
+
+}
+
+.result-item-text {
+    margin: 0 5vw;
+
+
+}
+
+.result-item-text:first-child {
+    font-weight: 800;
+    color: var(--yellow);
+}
+
+.result-title {
+    margin: 1vh;
+    font-size: 3rem;
+    font-weight: 800;
+}
+
+.return-home {
+    color: white;
+    text-decoration: none;
+    margin: 1vh 0;
+}
+
+.return-home:hover {
+    color: var(--yellow);
+    transition: all 100ms ease-in-out;
+}
+
+
+label {
+    font-size: 2rem;
+    font-weight: 600;
+    margin-bottom: 2vh;
+}
+
+a {
+    color: var(--yellow);
+}
+
+input {
+    font-size: 1rem;
+    padding-left: 5%;
+    color: black;
+    font-family: "Poppins", sans-serif;
+    outline: none;
+}
+
+.login-inputs {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 0.25rem;
+}
