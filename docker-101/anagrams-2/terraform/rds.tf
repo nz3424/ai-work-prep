@@ -24,6 +24,7 @@ resource "aws_db_instance" "main" {
 
   skip_final_snapshot = true
   publicly_accessible = false
+  storage_encrypted   = true
 
   tags = {
     Name = "${var.project_name}-db"

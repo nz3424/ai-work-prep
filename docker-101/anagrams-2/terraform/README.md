@@ -11,6 +11,9 @@ and an ALB in front of the API.
   ECS, IAM, RDS, Secrets Manager, and ELB (`aws sts get-caller-identity`
   should succeed)
 - Docker, to build and push the API image
+- Session Manager plugin for the AWS CLI (`brew install --cask
+  session-manager-plugin`), needed for `aws ecs execute-command` — used
+  below to load the DB schema
 
 ## First-time setup
 
@@ -38,15 +41,46 @@ that's expected on the very first apply.
 
 ## Load the database schema
 
+The RDS instance has `publicly_accessible = false`, and its security group
+(`aws_security_group.rds` in `network.tf`) only admits port 3306 from the
+ECS task's security group. That's deliberate isolation — this scaffold has
+no NAT Gateway or bastion host, so nothing outside the VPC (including your
+laptop) can reach the DB directly. Running `mysql -h $(terraform output -raw
+rds_endpoint) ...` from your machine will just hang until it times out.
+
+Instead, shell into the running ECS task — it's already inside the VPC and
+already allowed through the RDS security group — and load the schema from
+there. The service has `enable_execute_command = true` and the task role
+has the `ssmmessages:*` permissions ECS Exec needs (see `iam.tf`), so this
+works once a task is running (i.e. after you've pushed an image and it's
+gone healthy):
+
 ```bash
 cd docker-101/anagrams-2/terraform
-mysql -h $(terraform output -raw rds_endpoint) \
-      -u anagrams_admin -p \
-      anagrams_app < ../server/schema.sql
+
+# Find the running task's ID
+TASK_ID=$(aws ecs list-tasks --cluster anagrams-cluster --service-name anagrams-api \
+  --query 'taskArns[0]' --output text | awk -F/ '{print $NF}')
+
+# Base64 the schema so it survives being passed as a single --command string
+SCHEMA_B64=$(base64 < ../server/schema.sql | tr -d '\n')
+
+# One-shot: decode the schema, install a mysql client (the node:22-alpine
+# image doesn't ship one — the task has outbound internet access to fetch
+# it), and load it using the same DB_HOST/DB_USER/DB_PASSWORD/DB_NAME env
+# vars the app itself already runs with
+aws ecs execute-command \
+  --cluster anagrams-cluster \
+  --task "$TASK_ID" \
+  --container api \
+  --interactive \
+  --command "/bin/sh -c 'echo $SCHEMA_B64 | base64 -d > /tmp/schema.sql && apk add --no-cache mysql-client >/dev/null 2>&1 && mysql -h \"\$DB_HOST\" -u \"\$DB_USER\" -p\"\$DB_PASSWORD\" \"\$DB_NAME\" < /tmp/schema.sql && echo SCHEMA LOADED'"
 ```
-(Password: read `DB_PASSWORD` out of the secret named in the
-`secrets_manager_arn` output, via the Secrets Manager console or
-`aws secretsmanager get-secret-value`.)
+
+`SCHEMA LOADED` printing at the end means it worked. If you'd rather poke
+around interactively (e.g. to check tables with `SHOW TABLES;`), drop
+`--command` down to just `"/bin/sh"` and run the `apk add` / `mysql`
+commands by hand once you're in.
 
 ## Verify
 

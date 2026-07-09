@@ -41,3 +41,24 @@ resource "aws_iam_role" "ecs_task" {
   name               = "${var.project_name}-ecs-task-role"
   assume_role_policy = data.aws_iam_policy_document.ecs_task_assume_role.json
 }
+
+# Required for `aws ecs execute-command` (ECS Exec) to open a shell in the
+# running task — used to load the DB schema, since the RDS instance is not
+# reachable from outside the VPC (see README "Load the database schema").
+data "aws_iam_policy_document" "ecs_task_exec" {
+  statement {
+    actions = [
+      "ssmmessages:CreateControlChannel",
+      "ssmmessages:CreateDataChannel",
+      "ssmmessages:OpenControlChannel",
+      "ssmmessages:OpenDataChannel",
+    ]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "ecs_task_exec" {
+  name   = "${var.project_name}-ecs-task-exec"
+  role   = aws_iam_role.ecs_task.id
+  policy = data.aws_iam_policy_document.ecs_task_exec.json
+}

@@ -5,6 +5,15 @@ resource "aws_ecs_service" "api" {
   desired_count   = var.desired_count
   launch_type     = "FARGATE"
 
+  # Slow first-start apps (e.g. cold npm/JIT warmup) shouldn't get killed by
+  # an early failing health check before they're actually ready.
+  health_check_grace_period_seconds = 60
+
+  # Lets `aws ecs execute-command` open a shell in the running task — used to
+  # load the DB schema (see README) since the RDS instance isn't reachable
+  # from outside the VPC by design.
+  enable_execute_command = true
+
   network_configuration {
     subnets          = aws_subnet.public[*].id
     security_groups  = [aws_security_group.ecs_task.id]
