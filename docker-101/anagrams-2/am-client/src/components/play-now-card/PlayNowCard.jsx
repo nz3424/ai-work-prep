@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import Card from "../Card";
 import "./play-now-card.css";
 import { useStateContext } from '../../contexts/ContextProvider';
-import { letterSets } from "../../constants";
+import { letterSets, API_BASE_URL } from "../../constants";
 const PlayNowCard = () => {
     const { activeUser, setRoute, gameMode, setGameMode, setChallengeId, setLetterSet } = useStateContext();
 
@@ -23,7 +23,7 @@ const PlayNowCard = () => {
     const sendChallenge = (id) => {
         console.log("Sending challenge to: ", id);
         // start a game with this friend
-        fetch("http://localhost:3001/challenge", {
+        fetch(`${API_BASE_URL}/challenge`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",

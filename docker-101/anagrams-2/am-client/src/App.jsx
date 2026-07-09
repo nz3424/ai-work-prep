@@ -3,6 +3,7 @@ import { useStateContext } from './contexts/ContextProvider';
 
 
 import { Home, Game, Login, SignUp } from './components';
+import { API_BASE_URL } from './constants';
 
 export default function App() {
     const size = 6;
@@ -13,7 +14,7 @@ export default function App() {
     // connect user to account
     useEffect(() => {
         if (token) {
-            fetch("http://localhost:3001/me", {
+            fetch(`${API_BASE_URL}/me`, {
                 method: "GET",
                 headers: {
                     Authorization: `Bearer ${token}`
