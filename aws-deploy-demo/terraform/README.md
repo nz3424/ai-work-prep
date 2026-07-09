@@ -18,7 +18,7 @@ and an ALB in front of the API.
 ## First-time setup
 
 ```bash
-cd docker-101/anagrams-2/terraform
+cd aws-deploy-demo/terraform
 cp terraform.tfvars.example terraform.tfvars   # edit if needed
 terraform init
 terraform plan     # review what will be created
@@ -30,10 +30,10 @@ terraform apply     # type "yes" to provision — this creates real, billed reso
 ```bash
 cd docker-101/anagrams-2/server
 aws ecr get-login-password --region us-east-1 | \
-  docker login --username AWS --password-stdin $(terraform -chdir=../terraform output -raw ecr_repository_url | cut -d/ -f1)
+  docker login --username AWS --password-stdin $(terraform -chdir=../../../aws-deploy-demo/terraform output -raw ecr_repository_url | cut -d/ -f1)
 docker build -t anagrams-api .
-docker tag anagrams-api:latest $(terraform -chdir=../terraform output -raw ecr_repository_url):latest
-docker push $(terraform -chdir=../terraform output -raw ecr_repository_url):latest
+docker tag anagrams-api:latest $(terraform -chdir=../../../aws-deploy-demo/terraform output -raw ecr_repository_url):latest
+docker push $(terraform -chdir=../../../aws-deploy-demo/terraform output -raw ecr_repository_url):latest
 ```
 
 The ECS service will show unhealthy targets until an image exists in ECR —
@@ -56,14 +56,14 @@ works once a task is running (i.e. after you've pushed an image and it's
 gone healthy):
 
 ```bash
-cd docker-101/anagrams-2/terraform
+cd aws-deploy-demo/terraform
 
 # Find the running task's ID
 TASK_ID=$(aws ecs list-tasks --cluster anagrams-cluster --service-name anagrams-api \
   --query 'taskArns[0]' --output text | awk -F/ '{print $NF}')
 
 # Base64 the schema so it survives being passed as a single --command string
-SCHEMA_B64=$(base64 < ../server/schema.sql | tr -d '\n')
+SCHEMA_B64=$(base64 < ../../docker-101/anagrams-2/server/schema.sql | tr -d '\n')
 
 # One-shot: decode the schema, install a mysql client (the node:22-alpine
 # image doesn't ship one — the task has outbound internet access to fetch
@@ -85,7 +85,7 @@ commands by hand once you're in.
 ## Verify
 
 ```bash
-cd docker-101/anagrams-2/terraform
+cd aws-deploy-demo/terraform
 curl $(terraform output -raw alb_dns_name)/health
 ```
 Expected: `{"status":"ok"}`
@@ -113,7 +113,7 @@ aws ecs update-service --cluster anagrams-cluster --service anagrams-api --force
 ## Tear down
 
 ```bash
-cd docker-101/anagrams-2/terraform
+cd aws-deploy-demo/terraform
 terraform destroy
 ```
 Deletes everything Terraform created. Do this between practice sessions to
