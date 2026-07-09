@@ -17,3 +17,18 @@ output "secrets_manager_arn" {
   description = "Secret containing DB_PASSWORD and JWT_SECRET"
   value       = aws_secretsmanager_secret.app.arn
 }
+
+output "cloudfront_domain_name" {
+  description = "Public HTTPS URL for the deployed client app"
+  value       = "https://${aws_cloudfront_distribution.client.domain_name}"
+}
+
+output "cloudfront_distribution_id" {
+  description = "CloudFront distribution ID, needed for cache invalidations"
+  value       = aws_cloudfront_distribution.client.id
+}
+
+output "client_bucket_name" {
+  description = "S3 bucket holding the built client assets"
+  value       = aws_s3_bucket.client.bucket
+}
