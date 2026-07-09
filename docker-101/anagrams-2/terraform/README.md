@@ -39,7 +39,8 @@ that's expected on the very first apply.
 ## Load the database schema
 
 ```bash
-mysql -h $(terraform -chdir=terraform output -raw rds_endpoint) \
+cd docker-101/anagrams-2/terraform
+mysql -h $(terraform output -raw rds_endpoint) \
       -u anagrams_admin -p \
       anagrams_app < ../server/schema.sql
 ```
@@ -50,6 +51,7 @@ mysql -h $(terraform -chdir=terraform output -raw rds_endpoint) \
 ## Verify
 
 ```bash
+cd docker-101/anagrams-2/terraform
 curl $(terraform output -raw alb_dns_name)/health
 ```
 Expected: `{"status":"ok"}`
@@ -77,6 +79,7 @@ aws ecs update-service --cluster anagrams-cluster --service anagrams-api --force
 ## Tear down
 
 ```bash
+cd docker-101/anagrams-2/terraform
 terraform destroy
 ```
 Deletes everything Terraform created. Do this between practice sessions to
