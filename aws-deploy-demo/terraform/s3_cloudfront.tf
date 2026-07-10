@@ -29,7 +29,7 @@ resource "aws_cloudfront_origin_access_control" "client" {
 resource "aws_cloudfront_function" "spa_routing" {
   name    = "${var.project_name}-spa-routing"
   runtime = "cloudfront-js-1.0"
-  comment = "Rewrite extensionless paths to /index.html for client-side routing (react-router-dom). Only associated with the S3 default behavior, so /api/* traffic is never touched — this replaces the old distribution-wide custom_error_response, which was incorrectly rewriting real API 403/404 responses too."
+  comment = "Rewrites extensionless paths to /index.html for SPA routing. Attached only to S3 default behavior; /api/* untouched."
   publish = true
   code    = <<-EOT
     function handler(event) {
