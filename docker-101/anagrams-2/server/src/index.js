@@ -8,6 +8,20 @@ import mysql from "mysql2/promise";
 
 dotenv.config();
 
+// Same curated 6-letter pool as the client's am-client/src/constants.js
+// letterSets, used to give a challenged player a fresh set when the
+// challenger hasn't played their half of the challenge yet.
+const LETTER_SETS = [
+    "ASTETR", "NMAEIR", "PLTECA", "OPUETR", "RSSEUC", "BKIMCN",
+    "VENTOR", "DEALIN", "HIGTRE", "FACETR", "LIGHTS", "CRATES",
+    "TABLES", "SNORTE", "DINERS", "GARDEN", "COASTE", "FORCET",
+    "MARKET", "LATERS",
+];
+
+function randomLetterSet() {
+    return LETTER_SETS[Math.floor(Math.random() * LETTER_SETS.length)];
+}
+
 const app = express();
 
 const corsOptions = {
@@ -152,7 +166,7 @@ app.post('/api/score', authenticateToken, async (req, res) => {
         const id = req.user.id;
 
         // do we want to add anything else?
-        await db.query('INSERT INTO games (player_id, score, letter_set, mode, challenge_id) VALUES (?, ?, ?, ?, ?)', [id, score, letter_set, mode, challengeId || null]);
+        await db.query('INSERT INTO games (player_id, score, letter_set, mode, challenge_id) VALUES (?, ?, ?, ?, ?)', [id, score, JSON.stringify(letter_set), mode, challengeId || null]);
 
         // Update user's high score and games played
         await db.query('UPDATE users SET high_score = GREATEST(high_score, ?), games_played = games_played + 1 WHERE id = ?', [score, id]);
@@ -369,7 +383,7 @@ app.post("/api/challenges/:id/accept", authenticateToken, async (req, res) => {
             letterSet = gameRows[0].letter_set;
         } else {
             // Challenger hasn’t started yet → generate new set
-            letterSet = [];
+            letterSet = randomLetterSet();
         }
 
         res.json({ challengeId, letterSet });
