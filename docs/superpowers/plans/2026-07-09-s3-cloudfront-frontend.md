@@ -926,3 +926,108 @@ to:
 git add aws-deploy-demo/README.md aws-deploy-demo/terraform/README.md
 git commit -m "Document the live S3/CloudFront client deploy and fix stale /health references"
 ```
+
+---
+
+### Task 8: Fix SSE timeout through CloudFront (added post-Task-7)
+
+Task 7's smoke test found that `/api/events` (Server-Sent Events, used for
+real-time friend-request/challenge/score notifications) never delivers body
+data through CloudFront: the HTTP/2 stream is killed with `INTERNAL_ERROR`
+at almost exactly 30 seconds. Root cause, confirmed with a 40s-timeout curl
+probe against the live distribution: CloudFront's default Origin Response
+Timeout (30s) races the server's own heartbeat interval (`setInterval(...,
+30000)` in `docker-101/anagrams-2/server/src/index.js`) — CloudFront kills
+the connection for inactivity at the exact moment the origin would have sent
+its first keepalive byte. Direct-to-ALB access is unaffected (confirmed
+working in Task 7).
+
+**Files:**
+- Modify: `aws-deploy-demo/terraform/s3_cloudfront.tf` (the `alb-api` origin's `custom_origin_config` block)
+
+**Interfaces:**
+- Consumes: the existing `origin { domain_name = aws_lb.main.dns_name ... custom_origin_config { ... } }` block added in Task 3
+- Produces: no new outputs; the live CloudFront distribution's origin timeout changes on apply
+
+- [ ] **Step 1: Add `origin_read_timeout` to the ALB origin's `custom_origin_config`**
+
+In `aws-deploy-demo/terraform/s3_cloudfront.tf`, change:
+
+```hcl
+    custom_origin_config {
+      http_port              = 80
+      https_port              = 443
+      origin_protocol_policy = "http-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+```
+
+to:
+
+```hcl
+    custom_origin_config {
+      http_port              = 80
+      https_port              = 443
+      origin_protocol_policy = "http-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+      # Default (30s) races the server's own 30s SSE heartbeat interval
+      # (server/src/index.js's `setInterval(..., 30000)`), so CloudFront
+      # kills the /api/events connection right as the first heartbeat
+      # would arrive. 60s is the max allowed without an AWS support
+      # quota increase — gives the existing heartbeat cadence 2x margin.
+      origin_read_timeout = 60
+    }
+```
+
+- [ ] **Step 2: Format, validate, and plan (read-only against real state)**
+
+```bash
+cd aws-deploy-demo/terraform
+terraform fmt
+terraform validate
+terraform plan -state="/Users/nzhu/Documents/Claude/Projects/link-ventures-prep/aws-deploy-demo/terraform/terraform.tfstate"
+```
+
+Expected: `terraform validate` → `Success! The configuration is valid.`; plan shows exactly `Plan: 0 to add, 1 to change, 0 to destroy` (only `aws_cloudfront_distribution.client`'s origin config changes in-place — no resource replacement).
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add aws-deploy-demo/terraform/s3_cloudfront.tf
+git commit -m "Fix SSE connections dying through CloudFront by raising origin_read_timeout"
+```
+
+- [ ] **Step 4: Apply from the main checkout (live infrastructure)**
+
+Same pattern as Task 4 — this runs in `/Users/nzhu/Documents/Claude/Projects/link-ventures-prep/aws-deploy-demo/terraform` (real state), not the worktree.
+
+```bash
+cd /Users/nzhu/Documents/Claude/Projects/link-ventures-prep/aws-deploy-demo/terraform
+terraform apply -auto-approve
+```
+
+Expected: `Apply complete! Resources: 0 added, 1 changed, 0 destroyed.` CloudFront distribution config updates typically propagate in a few minutes (faster than the initial ~3min creation in Task 4, but still not instant) — wait for `Deployed` status:
+
+```bash
+DIST_ID=$(terraform output -raw cloudfront_distribution_id)
+aws cloudfront wait distribution-deployed --id "$DIST_ID"
+```
+
+- [ ] **Step 5: Re-verify SSE survives past 30 seconds**
+
+```bash
+CF_URL=$(terraform output -raw cloudfront_domain_name)
+# Sign up a fresh throwaway user and grab a token, same pattern as Task 7 Step 1
+SIGNUP_RESP=$(curl -s -X POST "$CF_URL/api/signup" \
+  -H "Content-Type: application/json" \
+  -d "{\"username\":\"sse_fix_verify_$(date +%s)\",\"password\":\"testpass123\"}")
+TOKEN=$(echo "$SIGNUP_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
+
+curl -sv -m 40 -o /tmp/sse_verify_body.txt -D /tmp/sse_verify_headers.txt \
+  "$CF_URL/api/events?token=$TOKEN"
+cat /tmp/sse_verify_headers.txt
+echo "--- body (expect at least one heartbeat line, ':heartbeat') ---"
+cat /tmp/sse_verify_body.txt
+```
+
+Expected: the connection survives past the 30-second mark this time (no `INTERNAL_ERROR` stream reset at ~30s), and the body file contains at least one `:heartbeat` line (the server sends one every 30s, so a 40s-timeout curl should catch it). If it still dies at 30s or the body is still empty, the fix didn't work — report BLOCKED with the actual output rather than declaring success.
