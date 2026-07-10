@@ -48,6 +48,12 @@ resource "aws_cloudfront_distribution" "client" {
       https_port             = 443
       origin_protocol_policy = "http-only"
       origin_ssl_protocols   = ["TLSv1.2"]
+      # Default (30s) races the server's own 30s SSE heartbeat interval
+      # (server/src/index.js's `setInterval(..., 30000)`), so CloudFront
+      # kills the /api/events connection right as the first heartbeat
+      # would arrive. 60s is the max allowed without an AWS support
+      # quota increase — gives the existing heartbeat cadence 2x margin.
+      origin_read_timeout = 60
     }
   }
 
