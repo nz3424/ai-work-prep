@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import Card from "../Card";
 import "./challenge-card.css";
 import { useStateContext } from '../../contexts/ContextProvider';
+import { API_BASE_URL } from '../../constants';
 
 const ChallengeCard = ({ challenges }) => {
-    const { setRoute, setGameMode, setChallengeId, setLetterSet, setIsAuth } = useStateContext();
+    const { setRoute, setGameMode, setChallengeId, setLetterSet } = useStateContext();
 
     function timeAgo(dateString) {
         const now = new Date();
@@ -22,7 +23,7 @@ const ChallengeCard = ({ challenges }) => {
     }
 
     const handleChallengeAccept = (challengeId) => {
-        fetch(`http://localhost:3001/challenges/${challengeId}/accept`, {
+        fetch(`${API_BASE_URL}/challenges/${challengeId}/accept`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -35,7 +36,6 @@ const ChallengeCard = ({ challenges }) => {
                 console.error("Token invalid or expired. Logging out.");
                 sessionStorage.removeItem("token");
                 setRoute("login");
-                setIsAuth(false);
                 return;
             }
             const data = await res.json()

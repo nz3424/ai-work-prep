@@ -37,7 +37,7 @@ variable "container_port" {
 variable "health_check_path" {
   description = "ALB target group health check path"
   type        = string
-  default     = "/health"
+  default     = "/api/health"
 }
 
 variable "task_cpu" {

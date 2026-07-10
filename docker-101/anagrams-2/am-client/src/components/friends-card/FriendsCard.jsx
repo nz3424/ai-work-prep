@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import Card from "../Card";
 import "./friends-card.css";
 import { useStateContext } from '../../contexts/ContextProvider';
-import { letterSets } from '../../constants';
+import { letterSets, API_BASE_URL } from '../../constants';
 
 const FriendsCard = ({ friends, requests }) => {
     const [isFriendView, setIsFriendView] = useState(true);
@@ -23,7 +23,7 @@ const FriendsCard = ({ friends, requests }) => {
     }
     );
     const addFriend = (username) => {
-        fetch("http://localhost:3001/friend-request", {
+        fetch(`${API_BASE_URL}/friend-request`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -47,7 +47,7 @@ const FriendsCard = ({ friends, requests }) => {
     const acceptRequest = (requester) => {
         console.log("Accepting request from: ", requester.requester_name);
         // then remove request from list? (or is this already handled)
-        fetch("http://localhost:3001/friends/accept", {
+        fetch(`${API_BASE_URL}/friends/accept`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -69,7 +69,7 @@ const FriendsCard = ({ friends, requests }) => {
 
     const declineRequest = (requester) => {
         console.log("Declining request from: ", requester);
-        fetch("http://localhost:3001/friends/decline", {
+        fetch(`${API_BASE_URL}/friends/decline`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -91,7 +91,7 @@ const FriendsCard = ({ friends, requests }) => {
     const sendChallenge = (friend) => {
         console.log("Sending challenge to: ", friend);
         // start a game with this friend
-        fetch("http://localhost:3001/challenge", {
+        fetch(`${API_BASE_URL}/challenge`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",

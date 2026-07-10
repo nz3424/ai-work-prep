@@ -86,7 +86,7 @@ commands by hand once you're in.
 
 ```bash
 cd aws-deploy-demo/terraform
-curl $(terraform output -raw alb_dns_name)/health
+curl $(terraform output -raw alb_dns_name)/api/health
 ```
 Expected: `{"status":"ok"}`
 
@@ -94,11 +94,30 @@ Expected: `{"status":"ok"}`
 
 ```bash
 cd docker-101/anagrams-2/server
-docker build -t anagrams-api .
+docker build --platform linux/amd64 -t anagrams-api .
 docker tag anagrams-api:latest <ecr_repository_url>:latest
 docker push <ecr_repository_url>:latest
 aws ecs update-service --cluster anagrams-cluster --service anagrams-api --force-new-deployment --region us-east-1
 ```
+
+Note: `--platform linux/amd64` matters when building on Apple Silicon —
+Fargate defaults to X86_64 and won't run an arm64 image.
+
+## Deploy the client (S3 + CloudFront)
+
+```bash
+cd docker-101/anagrams-2/am-client
+VITE_API_URL=/api npm run build
+aws s3 sync dist/ s3://$(terraform -chdir=../../../aws-deploy-demo/terraform output -raw client_bucket_name) --delete
+aws cloudfront create-invalidation \
+  --distribution-id $(terraform -chdir=../../../aws-deploy-demo/terraform output -raw cloudfront_distribution_id) \
+  --paths "/*"
+```
+
+The app is served from the CloudFront domain, not the ALB — run
+`terraform output cloudfront_domain_name` to get the URL. The invalidation
+step is required on every redeploy; without it, CloudFront keeps serving
+cached (stale) assets to existing visitors.
 
 ## Cost notes
 
@@ -109,6 +128,9 @@ aws ecs update-service --cluster anagrams-cluster --service anagrams-api --force
 - Fargate task (256 CPU / 512 MB) is ~$9–13/mo if left running continuously.
 - No NAT Gateway is provisioned (public-subnet + security-group pattern),
   which avoids its ~$32/mo cost.
+- S3 + CloudFront (client hosting): well under $1-2/mo at demo-level
+  traffic. `price_class = "PriceClass_100"` limits CloudFront to North
+  America/Europe edge locations to keep cost down further.
 
 ## Tear down
 

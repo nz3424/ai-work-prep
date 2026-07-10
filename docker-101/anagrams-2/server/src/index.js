@@ -8,6 +8,20 @@ import mysql from "mysql2/promise";
 
 dotenv.config();
 
+// Same curated 6-letter pool as the client's am-client/src/constants.js
+// letterSets, used to give a challenged player a fresh set when the
+// challenger hasn't played their half of the challenge yet.
+const LETTER_SETS = [
+    "ASTETR", "NMAEIR", "PLTECA", "OPUETR", "RSSEUC", "BKIMCN",
+    "VENTOR", "DEALIN", "HIGTRE", "FACETR", "LIGHTS", "CRATES",
+    "TABLES", "SNORTE", "DINERS", "GARDEN", "COASTE", "FORCET",
+    "MARKET", "LATERS",
+];
+
+function randomLetterSet() {
+    return LETTER_SETS[Math.floor(Math.random() * LETTER_SETS.length)];
+}
+
 const app = express();
 
 const corsOptions = {
@@ -103,7 +117,7 @@ app.listen(port, () => {
     console.log("server running on port 3001");
 })
 
-app.post("/signup", async (req, res) => {
+app.post("/api/signup", async (req, res) => {
     try {
         const { username, password } = req.body;
         const id = uuidv4(); // random id generator
@@ -120,7 +134,7 @@ app.post("/signup", async (req, res) => {
     }
 })
 
-app.post("/login", async (req, res) => {
+app.post("/api/login", async (req, res) => {
     try {
         const { username, password } = req.body;
 
@@ -146,13 +160,13 @@ app.post("/login", async (req, res) => {
     }
 })
 
-app.post('/score', authenticateToken, async (req, res) => {
+app.post('/api/score', authenticateToken, async (req, res) => {
     try {
         const { score, letter_set, mode, challengeId } = req.body; // get score and letter set from request body
         const id = req.user.id;
 
         // do we want to add anything else?
-        await db.query('INSERT INTO games (player_id, score, letter_set, mode, challenge_id) VALUES (?, ?, ?, ?, ?)', [id, score, letter_set, mode, challengeId || null]);
+        await db.query('INSERT INTO games (player_id, score, letter_set, mode, challenge_id) VALUES (?, ?, ?, ?, ?)', [id, score, JSON.stringify(letter_set), mode, challengeId || null]);
 
         // Update user's high score and games played
         await db.query('UPDATE users SET high_score = GREATEST(high_score, ?), games_played = games_played + 1 WHERE id = ?', [score, id]);
@@ -210,7 +224,7 @@ app.post('/score', authenticateToken, async (req, res) => {
     }
 })
 
-app.get('/me', authenticateToken, async (req, res) => {
+app.get('/api/me', authenticateToken, async (req, res) => {
     try {
         const id = req.user.id; // from JWT payload (set by authenticateToken middleware)
         const [rows] = await db.query('SELECT id, username, high_score, games_played, wins, losses FROM users WHERE id = ?', [id]);
@@ -253,7 +267,7 @@ app.get('/me', authenticateToken, async (req, res) => {
 });
 
 // create friend request:
-app.post('/friend-request', authenticateToken, async (req, res) => {
+app.post('/api/friend-request', authenticateToken, async (req, res) => {
     try {
         const { username } = req.body;
         const userId = req.user.id;
@@ -284,7 +298,7 @@ app.post('/friend-request', authenticateToken, async (req, res) => {
 );
 
 // accept friend request:
-app.post("/friends/accept", authenticateToken, async (req, res) => {
+app.post("/api/friends/accept", authenticateToken, async (req, res) => {
     try {
         const userId = req.user.id;
         const { requester_id } = req.body;
@@ -303,7 +317,7 @@ app.post("/friends/accept", authenticateToken, async (req, res) => {
 });
 
 // decline friend request:
-app.post("/friends/decline", authenticateToken, async (req, res) => {
+app.post("/api/friends/decline", authenticateToken, async (req, res) => {
     try {
         const userId = req.user.id;
         const { requester_id } = req.body;
@@ -320,7 +334,7 @@ app.post("/friends/decline", authenticateToken, async (req, res) => {
 });
 
 // TODO: include letter set information in front end
-app.post("/challenge", authenticateToken, async (req, res) => {
+app.post("/api/challenge", authenticateToken, async (req, res) => {
     try {
         const userId = req.user.id;
         const { friend_id } = req.body;
@@ -336,7 +350,7 @@ app.post("/challenge", authenticateToken, async (req, res) => {
     }
 });
 
-app.post("/challenges/:id/accept", authenticateToken, async (req, res) => {
+app.post("/api/challenges/:id/accept", authenticateToken, async (req, res) => {
     try {
         const challengeId = req.params.id;
         const playerId = req.user.id;
@@ -369,7 +383,7 @@ app.post("/challenges/:id/accept", authenticateToken, async (req, res) => {
             letterSet = gameRows[0].letter_set;
         } else {
             // Challenger hasn’t started yet → generate new set
-            letterSet = [];
+            letterSet = randomLetterSet();
         }
 
         res.json({ challengeId, letterSet });
@@ -382,7 +396,7 @@ app.post("/challenges/:id/accept", authenticateToken, async (req, res) => {
 
 
 // SSE connection endpoint
-app.get('/events', authenticateToken, (req, res) => {
+app.get('/api/events', authenticateToken, (req, res) => {
     const userId = req.user.id;
     const lastEventId = req.headers['last-event-id'];
 
@@ -418,7 +432,7 @@ app.get('/events', authenticateToken, (req, res) => {
 
 
 // Health check route
-app.get("/health", (req, res) => {
+app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
 });
 

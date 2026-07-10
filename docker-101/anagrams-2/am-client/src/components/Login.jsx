@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import "./styles.css";
 import { useStateContext } from '../contexts/ContextProvider';
+import { API_BASE_URL } from '../constants';
 
 
 const Login = ({ setIsAuth }) => {
@@ -9,7 +10,7 @@ const Login = ({ setIsAuth }) => {
 
     const { activeUser, setActiveUser, setRoute } = useStateContext();
     const login = () => {
-        fetch("http://localhost:3001/login", {
+        fetch(`${API_BASE_URL}/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })

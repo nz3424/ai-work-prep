@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { API_BASE_URL } from '../constants';
 
 const StateContext = createContext();
 
@@ -37,7 +38,7 @@ export const ContextProvider = ({ children }) => {
     const refreshUser = () => {
         const token = sessionStorage.getItem("token");
         if (!token) return;
-        fetch("http://localhost:3001/me", {
+        fetch(`${API_BASE_URL}/me`, {
             headers: { Authorization: `Bearer ${token}` }
         })
             .then(res => res.json())
@@ -66,7 +67,7 @@ export const ContextProvider = ({ children }) => {
         // EventSource doesn't support custom headers, so we pass the token as a
         // query param. Make sure authenticateToken on the server also checks for
         // req.query.token as a fallback
-        const es = new EventSource(`http://localhost:3001/events?token=${token}`);
+        const es = new EventSource(`${API_BASE_URL}/events?token=${token}`);
         eventSourceRef.current = es;
 
         // Opponent finished their challenge game → our record updated

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FaBackspace } from "react-icons/fa";
 import { FaShuffle } from "react-icons/fa6"
 import GameOver from './GameOver';
-import { scores, options, API_URL, letterSets } from "../constants";
+import { scores, options, API_URL, API_BASE_URL, letterSets } from "../constants";
 import { useStateContext } from '../contexts/ContextProvider';
 export default function Game({ letterSet, size = 6, mode = "solo" }) {
 
@@ -291,7 +291,7 @@ export default function Game({ letterSet, size = 6, mode = "solo" }) {
 
 
     const endGame = (score) => {
-        fetch("http://localhost:3001/score", {
+        fetch(`${API_BASE_URL}/score`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

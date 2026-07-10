@@ -1,4 +1,6 @@
 
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
 export const API_URL = 'https://wordsapiv1.p.rapidapi.com/words/';
 
 export const scores = {
@@ -10,8 +12,7 @@ export const scores = {
 export const options = {
     method: 'GET',
     headers: {
-        // Set your own RapidAPI key here (or load from an env var) — do not commit real keys
-        'X-RapidAPI-Key': 'REPLACE_WITH_YOUR_RAPIDAPI_KEY',
+        'X-RapidAPI-Key': import.meta.env.VITE_RAPIDAPI_KEY || 'REPLACE_WITH_YOUR_RAPIDAPI_KEY',
         'X-RapidAPI-Host': 'wordsapiv1.p.rapidapi.com'
     }
 };

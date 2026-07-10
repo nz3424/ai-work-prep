@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import "./styles.css";
 import { useStateContext } from '../contexts/ContextProvider';
+import { API_BASE_URL } from '../constants';
 
 
 const SignUp = ({ setIsAuth }) => {
@@ -8,7 +9,7 @@ const SignUp = ({ setIsAuth }) => {
     const { setActiveUser, setRoute } = useStateContext();
     const defaultActiveUser = { username: "", id: null, friends: [], requests: [], user: { high_score: 0, games_played: 0 } };
     const signUp = () => {
-        fetch("http://localhost:3001/signup", {
+        fetch(`${API_BASE_URL}/signup`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(user)
