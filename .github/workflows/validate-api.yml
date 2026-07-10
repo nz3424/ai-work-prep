@@ -1,0 +1,27 @@
+name: Validate API
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            server:
+              - 'docker-101/anagrams-2/server/**'
+              - '.github/workflows/validate-api.yml'
+
+      - name: Build server image
+        if: steps.filter.outputs.server == 'true'
+        run: docker build -t anagrams-api:pr-check docker-101/anagrams-2/server

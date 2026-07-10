@@ -1,0 +1,60 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docker-101/anagrams-2/am-client/**"
+      - ".github/workflows/deploy-frontend.yml"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install and build
+        working-directory: docker-101/anagrams-2/am-client
+        env:
+          VITE_API_URL: /api
+        run: |
+          npm ci
+          npm run build
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.GITHUB_ACTIONS_FRONTEND_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Sync build output to S3
+        run: |
+          aws s3 sync docker-101/anagrams-2/am-client/dist \
+            "s3://${{ vars.S3_BUCKET }}" --delete
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" \
+            --paths "/*"
+
+      - name: Smoke test CloudFront URL
+        run: |
+          for i in $(seq 1 10); do
+            body=$(curl -s "${{ vars.CLOUDFRONT_DOMAIN }}" || true)
+            if echo "$body" | grep -q "<title>Vite + React</title>"; then
+              echo "Smoke test passed on attempt $i"
+              exit 0
+            fi
+            echo "Attempt $i: expected marker not found, retrying in 10s..."
+            sleep 10
+          done
+          echo "Smoke test failed: marker never appeared"
+          exit 1
