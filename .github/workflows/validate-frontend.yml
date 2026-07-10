@@ -29,6 +29,8 @@ jobs:
       - name: Install, lint, build
         if: steps.filter.outputs.client == 'true'
         working-directory: docker-101/anagrams-2/am-client
+        env:
+          VITE_API_URL: /api
         run: |
           npm ci
           npm run lint

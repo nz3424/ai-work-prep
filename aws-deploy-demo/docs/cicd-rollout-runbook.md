@@ -14,6 +14,16 @@ terraform apply /tmp/oidc.tfplan   # or re-run `terraform plan` first if stale
 ```
 Confirm: `Apply complete! Resources: 5 added, 0 changed, 0 destroyed.`
 
+If this fails with `EntityAlreadyExists` on the OIDC provider, an
+identity provider for `token.actions.githubusercontent.com` already
+exists in this account outside Terraform's state — import it instead of
+recreating it:
+```bash
+terraform import aws_iam_openid_connect_provider.github \
+  "arn:aws:iam::798294347421:oidc-provider/token.actions.githubusercontent.com"
+```
+then re-run `terraform apply`.
+
 ## 2. Populate GitHub repo variables
 
 ```bash
