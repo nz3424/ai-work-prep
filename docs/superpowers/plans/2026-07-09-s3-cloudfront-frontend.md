@@ -1031,3 +1031,164 @@ cat /tmp/sse_verify_body.txt
 ```
 
 Expected: the connection survives past the 30-second mark this time (no `INTERNAL_ERROR` stream reset at ~30s), and the body file contains at least one `:heartbeat` line (the server sends one every 30s, so a 40s-timeout curl should catch it). If it still dies at 30s or the body is still empty, the fix didn't work — report BLOCKED with the actual output rather than declaring success.
+
+---
+
+### Task 9: Fix CloudFront swallowing real API 403/404 responses (found in final review)
+
+The final whole-branch review (after Task 8) found a real cross-task bug: Task 3's
+`custom_error_response` blocks (added for SPA client-side routing — so refreshing on
+`/game` doesn't 404) apply to the **whole CloudFront distribution**, not just the S3
+behavior. That means a genuine `403` from the API (`authenticateToken` on an
+invalid/expired JWT, `docker-101/anagrams-2/server/src/index.js:94`, hit on every
+protected route) or `404` (e.g. "user not found") gets silently rewritten to
+`200 + index.html` too. Concretely, `ChallengeCard.jsx:34`'s
+`if (res.status === 403) { …force logout… }` branch can never fire in production, and
+every other component's `if (!res.ok)` check is bypassed the same way. Not a security
+hole (the API still rejects bad tokens server-side) but a real UX correctness bug.
+
+**Fix:** replace the distribution-wide `custom_error_response` rewrite with a
+CloudFront Function (viewer-request) attached **only** to the S3 default behavior —
+it rewrites extensionless paths to `/index.html` before S3 ever responds, so
+`/api/*` traffic (a separate behavior, no function attached there) is never touched.
+This is the standard modern pattern for SPA routing on CloudFront.
+
+**Files:**
+- Modify: `aws-deploy-demo/terraform/s3_cloudfront.tf` (remove both `custom_error_response` blocks, add a new `aws_cloudfront_function` resource, attach it to `default_cache_behavior`)
+
+**Interfaces:**
+- Consumes: the existing `aws_cloudfront_distribution.client` resource from Task 3/8
+- Produces: no new outputs; distribution config changes on apply
+
+- [ ] **Step 1: Remove the two `custom_error_response` blocks**
+
+In `aws-deploy-demo/terraform/s3_cloudfront.tf`, delete both blocks entirely:
+
+```hcl
+  # SPA client-side routing: react-router-dom paths like /game don't exist
+  # as S3 objects, so serve index.html and let the app's router take over.
+  # Both codes are handled because S3 can return either for a missing key
+  # depending on the request, and OAC-signed requests specifically.
+  custom_error_response {
+    error_code         = 403
+    response_code      = 200
+    response_page_path = "/index.html"
+  }
+
+  custom_error_response {
+    error_code         = 404
+    response_code      = 200
+    response_page_path = "/index.html"
+  }
+```
+
+- [ ] **Step 2: Add the CloudFront Function resource**
+
+Add this resource anywhere in `s3_cloudfront.tf` (top-level, alongside the other resources):
+
+```hcl
+resource "aws_cloudfront_function" "spa_routing" {
+  name    = "${var.project_name}-spa-routing"
+  runtime = "cloudfront-js-1.0"
+  comment = "Rewrite extensionless paths to /index.html for client-side routing (react-router-dom). Only associated with the S3 default behavior, so /api/* traffic is never touched — this replaces the old distribution-wide custom_error_response, which was incorrectly rewriting real API 403/404 responses too."
+  publish = true
+  code    = <<-EOT
+    function handler(event) {
+        var request = event.request;
+        var uri = request.uri;
+
+        if (!uri.includes('.')) {
+            request.uri = '/index.html';
+        }
+
+        return request;
+    }
+  EOT
+}
+```
+
+- [ ] **Step 3: Attach the function to the S3 default behavior only**
+
+In `aws-deploy-demo/terraform/s3_cloudfront.tf`, change:
+
+```hcl
+  default_cache_behavior {
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods          = ["GET", "HEAD"]
+    target_origin_id        = "s3-client"
+    viewer_protocol_policy  = "redirect-to-https"
+    # Managed-CachingOptimized
+    cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+  }
+```
+
+to:
+
+```hcl
+  default_cache_behavior {
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods          = ["GET", "HEAD"]
+    target_origin_id        = "s3-client"
+    viewer_protocol_policy  = "redirect-to-https"
+    # Managed-CachingOptimized
+    cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.spa_routing.arn
+    }
+  }
+```
+
+Do **not** add a `function_association` to the `/api/*` `ordered_cache_behavior` block — leaving it absent there is exactly what keeps API traffic untouched.
+
+- [ ] **Step 4: Format, validate, and plan (read-only against real state)**
+
+```bash
+cd aws-deploy-demo/terraform
+terraform fmt
+terraform validate
+terraform plan -state="/Users/nzhu/Documents/Claude/Projects/link-ventures-prep/aws-deploy-demo/terraform/terraform.tfstate"
+```
+
+Expected: `terraform validate` → `Success! The configuration is valid.`; plan shows `Plan: 1 to add, 1 to change, 0 to destroy` (the new `aws_cloudfront_function.spa_routing`, plus `aws_cloudfront_distribution.client` updating in-place — removed error responses + new function association — no resource replacement).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add aws-deploy-demo/terraform/s3_cloudfront.tf
+git commit -m "Replace distribution-wide SPA error rewrite with a CloudFront Function scoped to S3 only"
+```
+
+- [ ] **Step 6: Apply from the main checkout (live infrastructure)**
+
+Same pattern as Task 4/8 — run from `/Users/nzhu/Documents/Claude/Projects/link-ventures-prep/aws-deploy-demo/terraform` (real state), not the worktree. Sync the updated `s3_cloudfront.tf` there first, same as Task 8's Step 4.
+
+```bash
+cd /Users/nzhu/Documents/Claude/Projects/link-ventures-prep/aws-deploy-demo/terraform
+terraform apply -auto-approve
+```
+
+Expected: `Apply complete! Resources: 1 added, 1 changed, 0 destroyed.` Wait for the distribution to reach `Deployed`:
+
+```bash
+DIST_ID=$(terraform output -raw cloudfront_distribution_id)
+aws cloudfront wait distribution-deployed --id "$DIST_ID"
+```
+
+- [ ] **Step 7: Re-verify both the SPA fallback still works AND real API errors now pass through**
+
+```bash
+CF_URL=$(terraform output -raw cloudfront_domain_name)
+
+echo "--- SPA fallback still works (expect id=\"root\") ---"
+curl -s "$CF_URL/game" | grep -o 'id="root"'
+
+echo "--- real 403 now passes through for an invalid token (expect 403, not 200) ---"
+curl -s -o /dev/null -w "%{http_code}\n" "$CF_URL/api/me" -H "Authorization: Bearer not-a-real-token"
+
+echo "--- normal requests still unaffected (expect 200) ---"
+curl -s -o /dev/null -w "%{http_code}\n" "$CF_URL/"
+```
+
+Expected: `id="root"` printed (SPA fallback intact), `403` for the bad-token request (the actual bug fix — this used to silently return `200`), `200` for the root path. If the bad-token request still returns `200`, the fix didn't work — report BLOCKED with the actual output.
