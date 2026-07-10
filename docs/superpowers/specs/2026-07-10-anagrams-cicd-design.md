@@ -18,13 +18,14 @@ manual deploy steps:
   `npm run build` → `aws s3 sync` → CloudFront invalidation, all run by hand (see
   `docs/superpowers/specs/2026-07-09-s3-cloudfront-frontend-design.md`).
 
-Neither has a smoke test after deploy, and there is no CI. This spec adds two GitHub
-Actions workflows — one per deployable — that build, deploy, and smoke-test on every
-push to `main` that touches the relevant subtree. The repo (`nz3424/ai-work-prep`,
-containing several unrelated subprojects — `eval-harness`, `hermes-assistant`,
-`agent-capstone` — alongside `docker-101`/`aws-deploy-demo`) already pushes straight to
-`main`; this spec does not introduce a PR-gated flow, since there's no existing PR habit
-to hang one on.
+Neither has a smoke test after deploy, and there is no CI. This spec adds four GitHub
+Actions workflows — a build-only validation workflow and a deploy workflow, per
+deployable. The repo (`nz3424/ai-work-prep`, containing several unrelated subprojects —
+`eval-harness`, `hermes-assistant`, `agent-capstone` — alongside
+`docker-101`/`aws-deploy-demo`) has no existing PR habit, so this spec doesn't require
+PRs going forward — direct pushes to `main` still deploy exactly as before. The
+validation workflows exist so that *if* a PR is opened, it shows real build/lint
+checks rather than nothing; they're not a gate anything is forced through.
 
 ## Explicit scope decisions
 
@@ -40,10 +41,17 @@ to hang one on.
   `github-actions-frontend-deploy` (S3 sync on the client bucket, CloudFront
   invalidation) are separate, least-privilege roles sharing one OIDC provider. A bug or
   compromise in one workflow can't reach the other's resources.
-- **Trigger: push to `main`, path-filtered per workflow.** `deploy-api.yml` only fires
-  on changes under `docker-101/anagrams-2/server/**` (+ itself); `deploy-frontend.yml`
-  only on `docker-101/anagrams-2/am-client/**` (+ itself). Prevents unrelated commits
-  elsewhere in the monorepo from triggering AWS deploys.
+- **Deploy trigger: push to `main`, path-filtered per workflow.** `deploy-api.yml`
+  only fires on changes under `docker-101/anagrams-2/server/**` (+ itself);
+  `deploy-frontend.yml` only on `docker-101/anagrams-2/am-client/**` (+ itself).
+  Prevents unrelated commits elsewhere in the monorepo from triggering AWS deploys.
+- **PR validation workflows, build-only, no AWS access.** `validate-api.yml` and
+  `validate-frontend.yml` trigger on `pull_request` (same path filters as their deploy
+  counterparts). They build the Docker image / run `npm run build` + lint but never
+  touch AWS — no OIDC role assumption, no credentials requested. This is what
+  populates a PR's checks box; it does not gate merging (nothing currently requires
+  checks to pass before merge) and does not replace the deploy workflows, which still
+  trigger only on push to `main` regardless of whether a PR preceded it.
 - **API image tagging: git SHA, not just `:latest`.** Each push builds and pushes
   `:<git-sha>` (plus `:latest` for convenience), registers a new ECS task definition
   revision pointing at the SHA tag, and updates the service to that revision. Gives
@@ -65,22 +73,27 @@ to hang one on.
 ## Architecture
 
 ```
-push to main (path-filtered)
-        │
-        ├─ server/** changed ──► deploy-api.yml
-        │                          1. assume github-actions-api-deploy (OIDC)
-        │                          2. docker build, push :sha + :latest to ECR
-        │                          3. render + register new task def revision
-        │                          4. ecs update-service, wait for stability
-        │                          5. smoke test: curl ALB /api/health
-        │
-        └─ am-client/** changed ► deploy-frontend.yml
-                                   1. npm ci && npm run build
-                                   2. assume github-actions-frontend-deploy (OIDC)
-                                   3. aws s3 sync dist/ → bucket --delete
-                                   4. cloudfront create-invalidation /*
-                                   5. smoke test: curl CloudFront URL
+pull_request (path-filtered)                push to main (path-filtered)
+        │                                            │
+        ├─ server/** ──► validate-api.yml            ├─ server/** ──► deploy-api.yml
+        │                  1. docker build (no push)  │                 1. assume github-actions-api-deploy (OIDC)
+        │                  2. no AWS access            │                 2. docker build, push :sha + :latest to ECR
+        │                                              │                 3. render + register new task def revision
+        │                                              │                 4. ecs update-service, wait for stability
+        │                                              │                 5. smoke test: curl ALB /api/health
+        │                                              │
+        └─ am-client/** ► validate-frontend.yml       └─ am-client/** ► deploy-frontend.yml
+                            1. npm ci && npm run build                    1. npm ci && npm run build
+                            2. lint                                       2. assume github-actions-frontend-deploy (OIDC)
+                            3. no AWS access                              3. aws s3 sync dist/ → bucket --delete
+                                                                           4. cloudfront create-invalidation /*
+                                                                           5. smoke test: curl CloudFront URL
 ```
+
+The two columns are independent: opening a PR runs only the left column (fast, no AWS
+credentials involved, populates the PR's checks box); merging (or pushing directly)
+runs only the right column (the real deploy). A PR is never required to trigger a
+deploy.
 
 ## AWS changes (Terraform, `aws-deploy-demo/terraform/`)
 
@@ -151,6 +164,40 @@ s3://<bucket> --delete` → `aws cloudfront create-invalidation --distribution-i
 --paths "/*"` → smoke test step: curl the CloudFront URL, retry briefly, fail on
 non-200 or missing expected marker (e.g. the app's `<title>` string).
 
+**`.github/workflows/validate-api.yml`**
+
+```yaml
+on:
+  pull_request:
+    paths:
+      - "docker-101/anagrams-2/server/**"
+      - ".github/workflows/validate-api.yml"
+permissions:
+  contents: read
+```
+
+Steps: checkout → `docker build` the server image (context
+`docker-101/anagrams-2/server`), no tag pushed anywhere, no registry login, no AWS
+credentials requested. A failing build (bad Dockerfile, broken `npm ci`) fails the
+check; nothing is deployed either way. This is intentionally the cheapest possible
+check — it doesn't run the app or hit a database — since the goal is catching "this
+doesn't even build," not full integration coverage.
+
+**`.github/workflows/validate-frontend.yml`**
+
+```yaml
+on:
+  pull_request:
+    paths:
+      - "docker-101/anagrams-2/am-client/**"
+      - ".github/workflows/validate-frontend.yml"
+permissions:
+  contents: read
+```
+
+Steps: checkout → `actions/setup-node@v4` → `npm ci` → `npm run lint` → `npm run
+build` in `am-client`. No AWS credentials requested, nothing uploaded anywhere.
+
 ## Repo configuration
 
 GitHub repo variables (Settings → Actions → Variables), populated from `terraform
@@ -165,17 +212,23 @@ output` after `apply`: `AWS_REGION`, `ECR_REPOSITORY_URL`, `ECS_CLUSTER`,
    plan` that no existing resource (ECS service, S3 bucket, CloudFront distribution) is
    touched — this change is additive only.
 2. Populate the GitHub repo variables from `terraform output`.
-3. Push both workflow files; confirm they don't fire on unrelated paths (e.g. push a
-   change under `eval-harness/` and confirm neither workflow runs).
+3. Push all four workflow files; confirm none fire on unrelated paths (e.g. push a
+   change under `eval-harness/` and confirm nothing runs).
 4. Make one trivial change to validate each pipeline end-to-end — e.g. a copy tweak in
-   the API's `/api/health` response and a small text change in the frontend UI — push to
-   `main`, watch the corresponding Action run, and confirm: the workflow succeeds, the
-   smoke test passes, and the change is actually visible at the live ALB/CloudFront URLs
-   afterward.
+   the API's `/api/health` response — on a branch, opened as a PR:
+   - Confirm `validate-api.yml` runs against the PR and its result shows in the PR's
+     checks box (the "checks passed" UI).
+   - Merge the PR into `main`; confirm `deploy-api.yml` then runs, visible in the
+     Actions tab, and that it succeeds: image pushed, task def revision bumped,
+     service updated, smoke test green.
+   - Curl the live ALB URL to confirm the change is actually there.
+   - Repeat the same PR → merge → Actions-tab-run → live-check sequence for a small
+     frontend text change, confirming `validate-frontend.yml` then `deploy-frontend.yml`.
 
 ## Out of scope
 
-- PR-gated builds (build-only on PR, deploy-only on merge).
+- Branch protection / required checks (PRs are never *required*; the validation
+  workflows show status but don't block merging).
 - Canary/blue-green deploys, multi-region, custom domain.
 - Automated rollback (beyond the manual "redeploy an older ECS task def revision"
   path that SHA-tagging enables).
