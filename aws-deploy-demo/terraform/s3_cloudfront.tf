@@ -26,6 +26,25 @@ resource "aws_cloudfront_origin_access_control" "client" {
   signing_protocol                  = "sigv4"
 }
 
+resource "aws_cloudfront_function" "spa_routing" {
+  name    = "${var.project_name}-spa-routing"
+  runtime = "cloudfront-js-1.0"
+  comment = "Rewrite extensionless paths to /index.html for client-side routing (react-router-dom). Only associated with the S3 default behavior, so /api/* traffic is never touched — this replaces the old distribution-wide custom_error_response, which was incorrectly rewriting real API 403/404 responses too."
+  publish = true
+  code    = <<-EOT
+    function handler(event) {
+        var request = event.request;
+        var uri = request.uri;
+
+        if (!uri.includes('.')) {
+            request.uri = '/index.html';
+        }
+
+        return request;
+    }
+  EOT
+}
+
 resource "aws_cloudfront_distribution" "client" {
   enabled             = true
   default_root_object = "index.html"
@@ -64,6 +83,11 @@ resource "aws_cloudfront_distribution" "client" {
     viewer_protocol_policy = "redirect-to-https"
     # Managed-CachingOptimized
     cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.spa_routing.arn
+    }
   }
 
   ordered_cache_behavior {
@@ -76,22 +100,6 @@ resource "aws_cloudfront_distribution" "client" {
     cache_policy_id = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
     # Managed-AllViewer
     origin_request_policy_id = "216adef6-5c7f-47e4-b989-5492eafa07d3"
-  }
-
-  # SPA client-side routing: react-router-dom paths like /game don't exist
-  # as S3 objects, so serve index.html and let the app's router take over.
-  # Both codes are handled because S3 can return either for a missing key
-  # depending on the request, and OAC-signed requests specifically.
-  custom_error_response {
-    error_code         = 403
-    response_code      = 200
-    response_page_path = "/index.html"
-  }
-
-  custom_error_response {
-    error_code         = 404
-    response_code      = 200
-    response_page_path = "/index.html"
   }
 
   restrictions {
