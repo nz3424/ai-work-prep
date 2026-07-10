@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import PropTypes from 'prop-types';
 import "./styles.css";
 import { useStateContext } from '../contexts/ContextProvider';
 import Card from './Card';
@@ -6,11 +6,9 @@ import FriendsCard from './friends-card/FriendsCard';
 import { ChallengeCard } from './challenge-card';
 import { PlayNowCard } from './play-now-card';
 import { GameLogCard } from './game-log-card';
-import { letterSets } from '../constants';
-import Game from './Game';
 
 export default function Home({ onLogout }) {
-    const { activeUser, setRoute, setGameMode, setLetterSet, setChallengeId } = useStateContext();
+    const { activeUser, setRoute } = useStateContext();
     if (!activeUser) {
         return;
     }
@@ -63,4 +61,8 @@ export default function Home({ onLogout }) {
             </div >
         </div >
     )
+}
+
+Home.propTypes = {
+    onLogout: PropTypes.func.isRequired,
 }

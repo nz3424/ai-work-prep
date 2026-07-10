@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import PropTypes from 'prop-types';
 import { API_BASE_URL } from '../constants';
 
 const StateContext = createContext();
@@ -114,4 +115,10 @@ export const ContextProvider = ({ children }) => {
     </StateContext.Provider>)
 
 }
+
+ContextProvider.propTypes = {
+    children: PropTypes.node,
+}
+
+// eslint-disable-next-line react-refresh/only-export-components -- hook is tightly coupled to the provider above
 export const useStateContext = () => useContext(StateContext);

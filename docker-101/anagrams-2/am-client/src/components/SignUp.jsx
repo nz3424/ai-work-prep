@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import PropTypes from 'prop-types';
 import "./styles.css";
 import { useStateContext } from '../contexts/ContextProvider';
 import { API_BASE_URL } from '../constants';
@@ -60,6 +61,10 @@ const SignUp = ({ setIsAuth }) => {
             </div>
         </div>
     )
+}
+
+SignUp.propTypes = {
+    setIsAuth: PropTypes.func.isRequired,
 }
 
 export default SignUp

@@ -433,7 +433,7 @@ app.get('/api/events', authenticateToken, (req, res) => {
 
 // Health check route
 app.get("/api/health", (req, res) => {
-    res.json({ status: "ok" });
+    res.json({ status: "ok", service: "anagrams-api" });
 });
 
 console.log(

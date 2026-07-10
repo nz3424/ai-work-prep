@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import PropTypes from "prop-types";
 import Card from "../Card";
 import "./friends-card.css";
 import { useStateContext } from '../../contexts/ContextProvider';
@@ -8,7 +9,7 @@ const FriendsCard = ({ friends, requests }) => {
     const [isFriendView, setIsFriendView] = useState(true);
     const [modalOpen, setModalOpen] = useState(false);
     const [friendSearch, setFriendSearch] = useState("");
-    const { setRoute, setGameMode, setChallengeId, activeUser, setLetterSet, refreshUser } = useStateContext();
+    const { setRoute, setGameMode, setChallengeId, setLetterSet, refreshUser } = useStateContext();
     useEffect(() => {
         const handleKeyDown = (event) => {
             if (event && event.key === "Enter") {
@@ -178,6 +179,17 @@ const FriendsCard = ({ friends, requests }) => {
         </>
 
     )
+}
+
+FriendsCard.propTypes = {
+    friends: PropTypes.arrayOf(PropTypes.shape({
+        username: PropTypes.string,
+        id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    })),
+    requests: PropTypes.arrayOf(PropTypes.shape({
+        requester_name: PropTypes.string,
+        requester_id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    })),
 }
 
 export default FriendsCard

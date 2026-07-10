@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Card from "../Card";
 import "./play-now-card.css";
 import { useStateContext } from '../../contexts/ContextProvider';
