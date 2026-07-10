@@ -26,6 +26,11 @@ then re-run `terraform apply`.
 
 ## 2. Populate GitHub repo variables
 
+GitHub rejects any repo variable name starting with `GITHUB_` (reserved
+for its own built-in variables) — that's why the two role ARNs below are
+named `ACTIONS_API_ROLE_ARN` / `ACTIONS_FRONTEND_ROLE_ARN`, not
+`GITHUB_ACTIONS_*_ROLE_ARN`.
+
 ```bash
 cd aws-deploy-demo/terraform
 REPO=nz3424/ai-work-prep
@@ -39,25 +44,29 @@ gh variable set ALB_DNS_NAME --repo "$REPO" --body "$(terraform output -raw alb_
 gh variable set S3_BUCKET --repo "$REPO" --body "$(terraform output -raw client_bucket_name)"
 gh variable set CLOUDFRONT_DISTRIBUTION_ID --repo "$REPO" --body "$(terraform output -raw cloudfront_distribution_id)"
 gh variable set CLOUDFRONT_DOMAIN --repo "$REPO" --body "$(terraform output -raw cloudfront_domain_name)"
-gh variable set GITHUB_ACTIONS_API_ROLE_ARN --repo "$REPO" --body "$(terraform output -raw github_actions_api_role_arn)"
-gh variable set GITHUB_ACTIONS_FRONTEND_ROLE_ARN --repo "$REPO" --body "$(terraform output -raw github_actions_frontend_role_arn)"
+gh variable set ACTIONS_API_ROLE_ARN --repo "$REPO" --body "$(terraform output -raw github_actions_api_role_arn)"
+gh variable set ACTIONS_FRONTEND_ROLE_ARN --repo "$REPO" --body "$(terraform output -raw github_actions_frontend_role_arn)"
 
 gh variable list --repo "$REPO"
 ```
 Confirm: all 11 variables listed with non-empty values.
 
-## 3. Push the four workflow files to `main`
+## 3. Confirm the four workflow files are on `main`
 
-This is the last direct push `main` will ever accept — branch protection
-goes on in step 5.
+This repo already has a GitHub ruleset requiring all changes to `main`
+go through a pull request — direct `git push origin main` is rejected
+regardless of whether Terraform-managed branch protection (step 5) is
+on yet. The four workflow files merged to `main` via a PR already, so
+there's nothing to push here; just confirm they're present:
 
 ```bash
-git push origin main
+git log --oneline -6 origin/main -- .github/workflows/
 ```
-Confirm: `git log --oneline -6` on GitHub shows the workflow commits, and
-Actions tab shows no unexpected run (deploy workflows are path-filtered;
-pushing workflow files alone shouldn't trigger them unless this push also
-touches `server/**` or `am-client/**`).
+Confirm: `validate-api.yml`, `validate-frontend.yml`, `deploy-api.yml`,
+and `deploy-frontend.yml` all show up, and the Actions tab shows no
+unexpected run from that merge (deploy workflows are path-filtered;
+merging workflow files alone shouldn't trigger them unless that merge
+also touched `server/**` or `am-client/**`).
 
 ## 4. Open a throwaway PR to register the required-check names
 

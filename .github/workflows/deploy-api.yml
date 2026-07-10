@@ -19,7 +19,7 @@ jobs:
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.GITHUB_ACTIONS_API_ROLE_ARN }}
+          role-to-assume: ${{ vars.ACTIONS_API_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
       - uses: aws-actions/amazon-ecr-login@v2
