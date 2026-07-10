@@ -20,12 +20,15 @@ manual deploy steps:
 
 Neither has a smoke test after deploy, and there is no CI. This spec adds four GitHub
 Actions workflows — a build-only validation workflow and a deploy workflow, per
-deployable. The repo (`nz3424/ai-work-prep`, containing several unrelated subprojects —
-`eval-harness`, `hermes-assistant`, `agent-capstone` — alongside
-`docker-101`/`aws-deploy-demo`) has no existing PR habit, so this spec doesn't require
-PRs going forward — direct pushes to `main` still deploy exactly as before. The
-validation workflows exist so that *if* a PR is opened, it shows real build/lint
-checks rather than nothing; they're not a gate anything is forced through.
+deployable — plus branch protection on `main` requiring a PR with passing checks
+before merge. The explicit goal (Nick's framing) is to mirror how production repos
+actually work: changes land via PR, a build must succeed before that PR can merge, and
+only then does it reach `main` / prod. This repo (`nz3424/ai-work-prep`) also contains
+several unrelated subprojects — `eval-harness`, `hermes-assistant`, `agent-capstone` —
+that don't yet have their own CI. Branch protection is a GitHub setting on the branch,
+not scopable by path, so once enabled it applies to *every* push to `main`, not just
+anagrams changes. See "Branch protection" below for how the validation workflows are
+built so this doesn't deadlock or block unrelated subprojects' PRs.
 
 ## Explicit scope decisions
 
@@ -46,12 +49,22 @@ checks rather than nothing; they're not a gate anything is forced through.
   `deploy-frontend.yml` only on `docker-101/anagrams-2/am-client/**` (+ itself).
   Prevents unrelated commits elsewhere in the monorepo from triggering AWS deploys.
 - **PR validation workflows, build-only, no AWS access.** `validate-api.yml` and
-  `validate-frontend.yml` trigger on `pull_request` (same path filters as their deploy
-  counterparts). They build the Docker image / run `npm run build` + lint but never
-  touch AWS — no OIDC role assumption, no credentials requested. This is what
-  populates a PR's checks box; it does not gate merging (nothing currently requires
-  checks to pass before merge) and does not replace the deploy workflows, which still
-  trigger only on push to `main` regardless of whether a PR preceded it.
+  `validate-frontend.yml` trigger on *every* `pull_request` targeting `main` — no path
+  filter on the trigger itself. Internally, a path-filter step decides whether the
+  PR actually touches the relevant subtree; if not, the job completes immediately
+  without building anything. If it does, the job builds the Docker image / runs
+  `npm run build` + lint. Neither ever touches AWS — no OIDC role assumption, no
+  credentials requested. This is deliberately different from the deploy workflows
+  (which do keep trigger-level path filters — see below) because these two become
+  *required* status checks (see "Branch protection"): a required check that only
+  triggers on matching paths would leave non-matching PRs (e.g. an eval-harness-only
+  PR) waiting forever on a check that never reports, permanently blocking merge.
+  Always-triggering-but-conditionally-skipping avoids that.
+- **Deploy workflows keep trigger-level path filters**, unchanged — `deploy-api.yml`
+  only runs for `server/**` changes, `deploy-frontend.yml` only for `am-client/**`.
+  They are not required checks, so there's no deadlock risk, and skipping the workflow
+  entirely (vs. running a no-op job) is simpler when nothing downstream depends on it
+  reporting.
 - **API image tagging: git SHA, not just `:latest`.** Each push builds and pushes
   `:<git-sha>` (plus `:latest` for convenience), registers a new ECS task definition
   revision pointing at the SHA tag, and updates the service to that revision. Gives
@@ -66,34 +79,46 @@ checks rather than nothing; they're not a gate anything is forced through.
   names, bucket name, distribution ID, role ARNs — all Terraform outputs, none of them
   sensitive. Secrets are reserved for things that actually need to be secret (there
   currently are none needed, since OIDC replaces static keys).
-- **Out of scope:** PR-gated builds, canary/blue-green rollout strategies, multi-region,
-  a custom domain (unchanged from the frontend spec), rollback automation beyond "redeploy
-  an older task def revision by hand."
+- **Branch protection on `main`: PR required, checks required, no admin bypass, no
+  required approvals.** "Require a pull request before merging" (disallows direct
+  pushes to `main`, including from the repo owner) + "Require status checks to pass"
+  listing `Validate API / build` and `Validate Frontend / build` + "Do not allow
+  bypassing the above settings" (applies to admins too — the whole point is mirroring
+  a real gate, not a suggestion). Required-approval count stays at 0: there's no second
+  contributor to review PRs, so requiring an approval would just block merges with no
+  one able to give one.
+- **Out of scope:** canary/blue-green rollout strategies, multi-region, a custom domain
+  (unchanged from the frontend spec), rollback automation beyond "redeploy an older task
+  def revision by hand," CI for the repo's other subprojects (eval-harness,
+  hermes-assistant, agent-capstone) — noted as likely future work, not built here.
 
 ## Architecture
 
 ```
-pull_request (path-filtered)                push to main (path-filtered)
-        │                                            │
-        ├─ server/** ──► validate-api.yml            ├─ server/** ──► deploy-api.yml
-        │                  1. docker build (no push)  │                 1. assume github-actions-api-deploy (OIDC)
-        │                  2. no AWS access            │                 2. docker build, push :sha + :latest to ECR
-        │                                              │                 3. render + register new task def revision
-        │                                              │                 4. ecs update-service, wait for stability
-        │                                              │                 5. smoke test: curl ALB /api/health
-        │                                              │
-        └─ am-client/** ► validate-frontend.yml       └─ am-client/** ► deploy-frontend.yml
-                            1. npm ci && npm run build                    1. npm ci && npm run build
-                            2. lint                                       2. assume github-actions-frontend-deploy (OIDC)
-                            3. no AWS access                              3. aws s3 sync dist/ → bucket --delete
-                                                                           4. cloudfront create-invalidation /*
-                                                                           5. smoke test: curl CloudFront URL
+pull_request → main (every PR, any path)     push to main (merge commit or, since
+        │                                     PRs are required, only ever a merge)
+        ├─ validate-api.yml                           │
+        │    1. path-filter step: does this PR         ├─ server/** ──► deploy-api.yml
+        │       touch server/**?                       │                 1. assume github-actions-api-deploy (OIDC)
+        │    2. if yes: docker build (no push)          │                 2. docker build, push :sha + :latest to ECR
+        │       if no: skip, report success fast        │                 3. render + register new task def revision
+        │    3. no AWS access either way                │                 4. ecs update-service, wait for stability
+        │                                                │                 5. smoke test: curl ALB /api/health
+        └─ validate-frontend.yml                        │
+             1. path-filter step: touches am-client/**? └─ am-client/** ► deploy-frontend.yml
+             2. if yes: npm ci, build, lint                               1. npm ci && npm run build
+                if no: skip, report success fast                          2. assume github-actions-frontend-deploy (OIDC)
+             3. no AWS access either way                                  3. aws s3 sync dist/ → bucket --delete
+                                                                            4. cloudfront create-invalidation /*
+                                                                            5. smoke test: curl CloudFront URL
 ```
 
-The two columns are independent: opening a PR runs only the left column (fast, no AWS
-credentials involved, populates the PR's checks box); merging (or pushing directly)
-runs only the right column (the real deploy). A PR is never required to trigger a
-deploy.
+Both `validate-*` checks are marked required in branch protection, so they run (and
+must pass) on *every* PR to `main` regardless of what it touches — but for a PR that
+doesn't touch `server/**` or `am-client/**`, the real build work is skipped and the
+check reports green in seconds. The deploy workflows stay path-filtered at the trigger
+level and only run for actual anagrams changes, whether the push came from a merge or
+(pre-branch-protection, historically) directly.
 
 ## AWS changes (Terraform, `aws-deploy-demo/terraform/`)
 
@@ -164,39 +189,95 @@ s3://<bucket> --delete` → `aws cloudfront create-invalidation --distribution-i
 --paths "/*"` → smoke test step: curl the CloudFront URL, retry briefly, fail on
 non-200 or missing expected marker (e.g. the app's `<title>` string).
 
-**`.github/workflows/validate-api.yml`**
+**`.github/workflows/validate-api.yml`** — job id `build` (so the required-check name
+is `Validate API / build`)
 
 ```yaml
 on:
   pull_request:
-    paths:
-      - "docker-101/anagrams-2/server/**"
-      - ".github/workflows/validate-api.yml"
+    branches: [main]
 permissions:
   contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            server:
+              - 'docker-101/anagrams-2/server/**'
+              - '.github/workflows/validate-api.yml'
+      - name: Build server image
+        if: steps.filter.outputs.server == 'true'
+        run: docker build -t anagrams-api:pr-check docker-101/anagrams-2/server
 ```
 
-Steps: checkout → `docker build` the server image (context
-`docker-101/anagrams-2/server`), no tag pushed anywhere, no registry login, no AWS
-credentials requested. A failing build (bad Dockerfile, broken `npm ci`) fails the
-check; nothing is deployed either way. This is intentionally the cheapest possible
-check — it doesn't run the app or hit a database — since the goal is catching "this
-doesn't even build," not full integration coverage.
+No path filter on `on.pull_request` — it always runs. The `dorny/paths-filter` step
+checks out cheaply and sets `steps.filter.outputs.server`; the actual `docker build`
+step only runs `if` that's true. For a PR that doesn't touch `server/**`, the job has
+one skipped step and reports success in a few seconds — not a real check of anything,
+but a fast, always-present status the branch protection rule can rely on. For a PR that
+does touch it, a failing build (bad Dockerfile, broken `npm ci`) fails the check;
+nothing is deployed either way (this workflow never has AWS credentials).
 
-**`.github/workflows/validate-frontend.yml`**
+**`.github/workflows/validate-frontend.yml`** — job id `build` (required-check name
+`Validate Frontend / build`)
 
 ```yaml
 on:
   pull_request:
-    paths:
-      - "docker-101/anagrams-2/am-client/**"
-      - ".github/workflows/validate-frontend.yml"
+    branches: [main]
 permissions:
   contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            client:
+              - 'docker-101/anagrams-2/am-client/**'
+              - '.github/workflows/validate-frontend.yml'
+      - uses: actions/setup-node@v4
+        if: steps.filter.outputs.client == 'true'
+        with:
+          node-version: 20
+      - name: Install, lint, build
+        if: steps.filter.outputs.client == 'true'
+        working-directory: docker-101/anagrams-2/am-client
+        run: |
+          npm ci
+          npm run lint
+          npm run build
 ```
 
-Steps: checkout → `actions/setup-node@v4` → `npm ci` → `npm run lint` → `npm run
-build` in `am-client`. No AWS credentials requested, nothing uploaded anywhere.
+Same pattern: always triggers, skips the real work for non-matching PRs, no AWS
+credentials requested either way.
+
+## Branch protection (GitHub repo settings, not Terraform)
+
+On `main`, under Settings → Branches → branch protection rule:
+- **Require a pull request before merging.** No direct pushes to `main` for anyone,
+  including the repo owner — matches "changes go through PRs like real prod."
+- **Require status checks to pass before merging**, with `Validate API / build` and
+  `Validate Frontend / build` selected as required. (These names only become
+  selectable in the GitHub UI after each workflow has run at least once — so the first
+  PR after adding the workflow files won't have anything to select from yet; add the
+  requirement once both have a run to point at.)
+- **Do not allow bypassing the above settings** (no admin exemption).
+- Required approving review count: **0** — no second contributor exists to approve.
+- "Require branches to be up to date before merging": left off. Not needed for a
+  single-contributor repo and would just force redundant re-runs on rebase.
+
+This is a manual GitHub Settings change (branch protection isn't Terraform-managed
+here), done once during implementation, after the four workflow files exist and have
+each run successfully at least once.
 
 ## Repo configuration
 
@@ -212,25 +293,34 @@ output` after `apply`: `AWS_REGION`, `ECR_REPOSITORY_URL`, `ECS_CLUSTER`,
    plan` that no existing resource (ECS service, S3 bucket, CloudFront distribution) is
    touched — this change is additive only.
 2. Populate the GitHub repo variables from `terraform output`.
-3. Push all four workflow files; confirm none fire on unrelated paths (e.g. push a
-   change under `eval-harness/` and confirm nothing runs).
-4. Make one trivial change to validate each pipeline end-to-end — e.g. a copy tweak in
+3. Push all four workflow files directly to `main` (last direct push this repo will
+   ever take — branch protection goes on next). Confirm the deploy workflows don't
+   fire on unrelated paths.
+4. Open one throwaway PR (any tiny diff) so `validate-api.yml` and
+   `validate-frontend.yml` each run at least once — required for their check names to
+   become selectable in the branch protection UI. Confirm both report success quickly
+   even though the throwaway diff likely touches neither `server/**` nor
+   `am-client/**` (proving the skip-logic works before it's load-bearing).
+5. Enable branch protection on `main` per the "Branch protection" section above.
+   Confirm a direct `git push` to `main` is now rejected.
+6. Make one trivial change to validate each pipeline end-to-end — e.g. a copy tweak in
    the API's `/api/health` response — on a branch, opened as a PR:
    - Confirm `validate-api.yml` runs against the PR and its result shows in the PR's
-     checks box (the "checks passed" UI).
+     checks box (the "checks passed" UI), and that merging is blocked until it's
+     green.
    - Merge the PR into `main`; confirm `deploy-api.yml` then runs, visible in the
      Actions tab, and that it succeeds: image pushed, task def revision bumped,
      service updated, smoke test green.
    - Curl the live ALB URL to confirm the change is actually there.
    - Repeat the same PR → merge → Actions-tab-run → live-check sequence for a small
      frontend text change, confirming `validate-frontend.yml` then `deploy-frontend.yml`.
+7. Confirm an eval-harness-only PR (a trivial, throwaway diff under `eval-harness/`)
+   still merges normally — both anagrams checks report success quickly without
+   building anything, and neither deploy workflow fires.
 
 ## Out of scope
 
-- Branch protection / required checks (PRs are never *required*; the validation
-  workflows show status but don't block merging).
-- Canary/blue-green deploys, multi-region, custom domain.
-- Automated rollback (beyond the manual "redeploy an older ECS task def revision"
-  path that SHA-tagging enables).
+See the "Out of scope" bullet under "Explicit scope decisions" above. Additionally:
+
 - Any change to `terraform.tfvars` handling or the credential-rotation follow-up noted
   in `aws-deploy-demo/docs/handoff.md` (separate concern from this spec).
