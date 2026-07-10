@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   build:
+    name: Validate Frontend
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
