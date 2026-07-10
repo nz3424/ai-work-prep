@@ -1,0 +1,35 @@
+name: Validate Frontend
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            client:
+              - 'docker-101/anagrams-2/am-client/**'
+              - '.github/workflows/validate-frontend.yml'
+
+      - uses: actions/setup-node@v4
+        if: steps.filter.outputs.client == 'true'
+        with:
+          node-version: 20
+
+      - name: Install, lint, build
+        if: steps.filter.outputs.client == 'true'
+        working-directory: docker-101/anagrams-2/am-client
+        run: |
+          npm ci
+          npm run lint
+          npm run build
