@@ -40,3 +40,6 @@ venv/
 # --- Editor ---
 .vscode/
 .idea/
+
+# --- Claude Code worktrees ---
+.claude/worktrees/
