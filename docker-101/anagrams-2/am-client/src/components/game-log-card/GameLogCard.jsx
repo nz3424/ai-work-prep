@@ -1,8 +1,6 @@
-import React from 'react'
-
 const GameLogCard = () => {
     return (
-        <div>GameLogCard</div>
+        <div>Game log coming soon</div>
     )
 }
 

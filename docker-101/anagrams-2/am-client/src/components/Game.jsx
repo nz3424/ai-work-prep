@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import { FaBackspace } from "react-icons/fa";
 import { FaShuffle } from "react-icons/fa6"
 import GameOver from './GameOver';
-import { scores, options, API_URL, API_BASE_URL, letterSets } from "../constants";
+import { scores, options, API_URL, API_BASE_URL } from "../constants";
 import { useStateContext } from '../contexts/ContextProvider';
 export default function Game({ letterSet, size = 6, mode = "solo" }) {
 
@@ -121,7 +122,7 @@ export default function Game({ letterSet, size = 6, mode = "solo" }) {
             setAvailLetters(initial);
         }
         shuffleReset();
-    }, [letters]);
+    }, [letters, size]);
 
     // handles key presses
     useEffect(() => {
@@ -287,6 +288,7 @@ export default function Game({ letterSet, size = 6, mode = "solo" }) {
                 });
         };
         fetchWord()
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- adding updateScore/wordBank would refetch on every score update
     }, [currWord])
 
 
@@ -329,6 +331,7 @@ export default function Game({ letterSet, size = 6, mode = "solo" }) {
             setTime(null);
             endGame(score);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- endGame closes over state that would retrigger this effect if included
     }, [time, score]);
 
     return (
@@ -377,4 +380,10 @@ export default function Game({ letterSet, size = 6, mode = "solo" }) {
                 </div>}
         </div >
     )
+}
+
+Game.propTypes = {
+    letterSet: PropTypes.arrayOf(PropTypes.string).isRequired,
+    size: PropTypes.number,
+    mode: PropTypes.string,
 }

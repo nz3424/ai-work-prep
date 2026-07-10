@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import "./styles.css";
 import { useStateContext } from '../contexts/ContextProvider';
 
@@ -37,6 +38,11 @@ const GameOver = ({ wordBank, score }) => {
             </div>
         </div>
     )
+}
+
+GameOver.propTypes = {
+    wordBank: PropTypes.objectOf(PropTypes.number).isRequired,
+    score: PropTypes.number,
 }
 
 export default GameOver

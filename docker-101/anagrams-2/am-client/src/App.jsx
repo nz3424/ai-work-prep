@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useStateContext } from './contexts/ContextProvider';
 
 
@@ -8,9 +8,9 @@ import { API_BASE_URL } from './constants';
 export default function App() {
     const size = 6;
     const token = sessionStorage.getItem("token");
-    const [isAuth, setIsAuth] = useState(false);
+    const [, setIsAuth] = useState(false);
 
-    const { activeUser, setActiveUser, route, gameMode, letterSet, refreshUser } = useStateContext();
+    const { activeUser, setActiveUser, route, gameMode, letterSet } = useStateContext();
     // connect user to account
     useEffect(() => {
         if (token) {
@@ -38,6 +38,7 @@ export default function App() {
                     setIsAuth(false);
                 });
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only re-runs when the token changes
     }, [token]);
 
     const logout = () => {

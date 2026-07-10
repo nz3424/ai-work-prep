@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import PropTypes from "prop-types";
 import Card from "../Card";
 import "./challenge-card.css";
 import { useStateContext } from '../../contexts/ContextProvider';
@@ -75,6 +75,14 @@ const ChallengeCard = ({ challenges }) => {
             content={content}
         />
     )
+}
+
+ChallengeCard.propTypes = {
+    challenges: PropTypes.arrayOf(PropTypes.shape({
+        id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        challenger_username: PropTypes.string,
+        created_at: PropTypes.string,
+    })),
 }
 
 export default ChallengeCard

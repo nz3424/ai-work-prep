@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import PropTypes from 'prop-types';
 import "./styles.css";
 import { useStateContext } from '../contexts/ContextProvider';
 import { API_BASE_URL } from '../constants';
@@ -54,12 +55,16 @@ const Login = ({ setIsAuth }) => {
             </div>
             <button className="login-button" type="button" onClick={() => { login() }}>Login</button>
             <div>
-                <span className="login-to-signup" >Don't have an account? Sign up </span>
+                <span className="login-to-signup" >Don&apos;t have an account? Sign up </span>
                 <a onClick={() => { setRoute("signup") }}>here</a>
             </div>
 
         </div>
     )
+}
+
+Login.propTypes = {
+    setIsAuth: PropTypes.func.isRequired,
 }
 
 export default Login
