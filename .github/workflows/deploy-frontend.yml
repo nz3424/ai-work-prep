@@ -31,7 +31,7 @@ jobs:
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.GITHUB_ACTIONS_FRONTEND_ROLE_ARN }}
+          role-to-assume: ${{ vars.ACTIONS_FRONTEND_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Sync build output to S3
