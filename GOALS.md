@@ -1,11 +1,11 @@
 # Link Ventures Prep
 
-**Job starts:** Monday, July 20, 2026
+**Job starts:** Monday, August 3, 2026
 **Role:** Internal tooling / building at Link Ventures
 
 ## What I'm working toward
 
-Two parallel prep tracks, both feeding the same larger goal: get hands-on and
+Three prep tracks, all feeding the same larger goal: get hands-on and
 comfortable with modern AI-assisted, end-to-end building.
 
 **Track 1 — Technical infrastructure (Link Ventures internal tooling):**
@@ -15,11 +15,37 @@ comfortable with modern AI-assisted, end-to-end building.
 - Containers (Docker: images, Dockerfiles, Compose, registries)
 - Cloud deployment (AWS: IAM, EC2 vs. ECS vs. Lambda, actually shipping a container)
 
+**Track 3 — LLM training fundamentals + ternary quantization (added 2026-07-14):**
+- Core: train a small transformer from scratch — own tokenizer, attention,
+  activation layers, training loop — to build *in-practice* intuition for
+  tokens/attention/activations, not just conceptual understanding
+- Stretch: implement ternary weight quantization ({-1, 0, 1}) on top of that
+  from-scratch model, following BitNet b1.58 (Ma et al., Microsoft Research,
+  arXiv:2402.17764 — "The Era of 1-bit LLMs") as the inspiration/starting
+  point, not necessarily the exact target architecture
+- Why: the actual role involves training an LLM with ternary weight
+  quantization, with the company's broader goal being to use ternary
+  weights — whose matmul reduces to integer addition, no multiplication —
+  to make photonics the primary compute substrate instead of GPUs
+- See `llm-training/README.md` for the working plan
+
 **Track 2 — Personal AI assistant (Hermes Agent by Nous Research):**
 - Learning how to use Hermes and why its architecture (learning loop, persistent
   memory, skills system, runs-anywhere) is different from a normal chatbot
 - Practicing it on real work-adjacent tasks: email/calendar triage, meeting
   summaries, scheduled digests
+
+## Current priority order (as of 2026-07-14)
+
+1. **`eval-harness/`** — LLM evaluation harness (only Task 1/8 done; this was
+   already in flight before Track 3 was added)
+2. **Track 3** — LLM training + ternary quantization (`llm-training/`) — most
+   directly relevant to the actual role, per the 2026-07-14 update
+3. **Track 2** — Hermes Agent (`hermes-assistant/`, not yet started)
+4. **Track 1 remainder** — `agent-capstone/` (the infra side of Track 1 is
+   otherwise done: Docker, AWS deploy, and CI/CD all shipped; only the
+   agent-capstone slot is still unstarted, and its scope may end up
+   subsumed by `eval-harness/` — see that folder before restarting it)
 
 ## Source of truth
 
@@ -37,6 +63,8 @@ comfortable with modern AI-assisted, end-to-end building.
 | `docker-101/` | Track 1, Day 2 | Get fluent with Docker: Dockerfiles, Compose, registries |
 | `aws-deploy-demo/` | Track 1, Day 3 | Deploy the Day 2 container to AWS (ECS Fargate or Lambda) |
 | `agent-capstone/` | Track 1, Days 4–5 | Small end-to-end agent: loop + sandboxed tool execution, containerized, deployed |
+| `eval-harness/` | Track 1, Days 4–5 (superseded agent-capstone) | LLM eval harness comparing Opus/Sonnet/Haiku on code-gen + API-design tasks |
+| `llm-training/` | Track 3, all days | Train a transformer from scratch; stretch: ternary (BitNet b1.58-style) quantization |
 | `hermes-assistant/` | Track 2, all days | Install, configure, and practice Hermes Agent for personal/work productivity |
 
 ## Picking this back up in a new session
