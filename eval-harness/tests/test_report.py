@@ -2,7 +2,7 @@ import os
 import tempfile
 
 from storage import ResultsStore, ResultRow
-from report import generate_report
+from report import generate_report, _aggregate_by_config
 
 
 def test_generate_report_creates_html_and_csv():
@@ -44,3 +44,23 @@ def test_generate_report_creates_html_and_csv():
         for p in (db_path, html_path, csv_path):
             if os.path.exists(p):
                 os.remove(p)
+
+
+def test_aggregate_excludes_errored_codegen_rows_from_pass_rate():
+    passing_row = ResultRow(
+        run_id="run1", model="claude-sonnet-5", temperature=0.2, prompt_variant="default",
+        task_id="codegen_01", task_type="codegen", score=1.0, pass_fail="pass",
+        cost_usd=0.002, latency_ms=300.0, timestamp="2026-07-06T00:00:00",
+        raw_response="code", error=None,
+    )
+    errored_row = ResultRow(
+        run_id="run1", model="claude-sonnet-5", temperature=0.2, prompt_variant="default",
+        task_id="codegen_02", task_type="codegen", score=None, pass_fail=None,
+        cost_usd=None, latency_ms=None, timestamp="2026-07-06T00:00:01",
+        raw_response=None, error="rate limited",
+    )
+
+    summary = _aggregate_by_config([passing_row, errored_row])
+
+    assert len(summary) == 1
+    assert summary[0]["codegen_pass_rate"] == 1.0

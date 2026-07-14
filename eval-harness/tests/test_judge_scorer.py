@@ -37,3 +37,18 @@ def test_score_api_design_gives_up_after_second_failure():
     result = score_api_design(client, "prompt", "rubric", "response")
     assert result.score is None
     assert result.error == "judge_parse_failed"
+
+
+def test_score_api_design_parses_json_wrapped_in_markdown_fences():
+    client = FakeLLMClient(['```json\n{"score": 7, "rationale": "fenced but valid"}\n```'])
+    result = score_api_design(client, "prompt", "rubric", "response")
+    assert result.score == 7.0
+    assert result.error is None
+    assert len(client.calls) == 1
+
+
+def test_score_api_design_parses_json_with_surrounding_prose():
+    client = FakeLLMClient(['Sure, here is my evaluation:\n{"score": 6, "rationale": "ok"}\nHope that helps!'])
+    result = score_api_design(client, "prompt", "rubric", "response")
+    assert result.score == 6.0
+    assert result.error is None

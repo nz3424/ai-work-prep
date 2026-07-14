@@ -30,7 +30,8 @@ def _aggregate_by_config(results):
 
     summary = []
     for (model, temperature, variant), rows in groups.items():
-        codegen_rows = [r for r in rows if r.task_type == "codegen"]
+        # exclude rows that errored before scoring, matching the judge metric's policy
+        codegen_rows = [r for r in rows if r.task_type == "codegen" and r.pass_fail is not None]
         judged_rows = [r for r in rows if r.task_type == "api_design" and r.score is not None]
         pass_count = sum(1 for r in codegen_rows if r.pass_fail == "pass")
         avg_judge_score = (sum(r.score for r in judged_rows) / len(judged_rows)) if judged_rows else None

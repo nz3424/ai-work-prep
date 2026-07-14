@@ -1,4 +1,5 @@
 import json
+import re
 
 from scoring.base import ScoreResult
 
@@ -37,8 +38,14 @@ def score_api_design(llm_client, task_prompt: str, rubric: str, response_text: s
 
 
 def _parse_judge_output(text: str):
-    try:
-        data = json.loads(text.strip())
-        return {"score": float(data["score"]), "rationale": data.get("rationale", "")}
-    except (json.JSONDecodeError, KeyError, ValueError, TypeError):
-        return None
+    candidates = [text.strip()]
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if match:
+        candidates.append(match.group(0))
+    for candidate in candidates:
+        try:
+            data = json.loads(candidate)
+            return {"score": float(data["score"]), "rationale": data.get("rationale", "")}
+        except (json.JSONDecodeError, KeyError, ValueError, TypeError):
+            continue
+    return None

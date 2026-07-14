@@ -27,3 +27,10 @@ def test_syntax_error_fails_without_crashing():
     result = score_codegen(BROKEN_CODE, TEST_CODE)
     assert result.pass_fail == "fail"
     assert result.score == 0.0
+
+
+def test_markdown_fenced_good_solution_still_passes():
+    fenced_code = "```python\n" + GOOD_CODE + "```\n"
+    result = score_codegen(fenced_code, TEST_CODE)
+    assert result.pass_fail == "pass"
+    assert result.score == 1.0

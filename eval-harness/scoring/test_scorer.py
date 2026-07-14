@@ -31,12 +31,22 @@ def _ensure_image(client: docker.DockerClient) -> None:
         )
 
 
+def _strip_markdown_fences(code: str) -> str:
+    stripped = code.strip()
+    if not stripped.startswith("```"):
+        return code
+    lines = stripped.splitlines()[1:]  # drop the ``` / ```python opener
+    if lines and lines[-1].strip() == "```":
+        lines = lines[:-1]
+    return "\n".join(lines) + "\n"
+
+
 def score_codegen(generated_code: str, test_code: str) -> ScoreResult:
     client = docker.from_env()
     _ensure_image(client)
     with tempfile.TemporaryDirectory() as tmpdir:
         with open(os.path.join(tmpdir, "solution.py"), "w") as f:
-            f.write(generated_code)
+            f.write(_strip_markdown_fences(generated_code))
         with open(os.path.join(tmpdir, "test_solution.py"), "w") as f:
             f.write(test_code)
 
@@ -48,13 +58,17 @@ def score_codegen(generated_code: str, test_code: str) -> ScoreResult:
             detach=True,
             mem_limit="256m",
             network_disabled=True,
+            pids_limit=128,
         )
         try:
             result = container.wait(timeout=TIMEOUT_SECONDS)
             logs = container.logs().decode("utf-8", errors="replace")
             exit_code = result["StatusCode"]
         except Exception as exc:
-            container.kill()
+            try:
+                container.kill()
+            except docker.errors.APIError:
+                pass  # container already exited between wait() failing and kill()
             logs = container.logs().decode("utf-8", errors="replace")
             return ScoreResult(score=0.0, pass_fail="fail", raw_output=logs, error=f"timeout_or_error: {exc}")
         finally:
