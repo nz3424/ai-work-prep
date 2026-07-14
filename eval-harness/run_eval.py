@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from configs import MODEL_CONFIGS
+from configs import MODEL_CONFIGS, PROMPT_VARIANT_SUFFIXES
 from llm_client import LLMClient
 from storage import ResultsStore, ResultRow
 from scoring.test_scorer import score_codegen
@@ -30,8 +30,9 @@ def run(db_path: str = DB_PATH) -> str:
 def _run_codegen(client, store, run_id, config, task):
     print(f"[{config.label}] {task.task_id} ... ", end="", flush=True)
     timestamp = datetime.now(timezone.utc).isoformat()
+    prompt = task.prompt + PROMPT_VARIANT_SUFFIXES[config.prompt_variant]
     try:
-        response = client.call(model=config.model, prompt=task.prompt, temperature=config.temperature)
+        response = client.call(model=config.model, prompt=prompt, temperature=config.temperature)
     except Exception as exc:
         store.write_result(ResultRow(
             run_id=run_id, model=config.model, temperature=config.temperature,
@@ -42,7 +43,18 @@ def _run_codegen(client, store, run_id, config, task):
         print(f"ERROR ({exc})")
         return
 
-    result = score_codegen(response.text, task.test_code)
+    try:
+        result = score_codegen(response.text, task.test_code)
+    except Exception as exc:
+        store.write_result(ResultRow(
+            run_id=run_id, model=config.model, temperature=config.temperature,
+            prompt_variant=config.prompt_variant, task_id=task.task_id, task_type="codegen",
+            score=None, pass_fail=None, cost_usd=response.cost_usd, latency_ms=response.latency_ms,
+            timestamp=timestamp, raw_response=response.text, error=str(exc),
+        ))
+        print(f"ERROR ({exc})")
+        return
+
     store.write_result(ResultRow(
         run_id=run_id, model=config.model, temperature=config.temperature,
         prompt_variant=config.prompt_variant, task_id=task.task_id, task_type="codegen",
@@ -57,8 +69,9 @@ def _run_codegen(client, store, run_id, config, task):
 def _run_api_design(client, store, run_id, config, task):
     print(f"[{config.label}] {task.task_id} ... ", end="", flush=True)
     timestamp = datetime.now(timezone.utc).isoformat()
+    prompt = task.prompt + PROMPT_VARIANT_SUFFIXES[config.prompt_variant]
     try:
-        response = client.call(model=config.model, prompt=task.prompt, temperature=config.temperature)
+        response = client.call(model=config.model, prompt=prompt, temperature=config.temperature)
     except Exception as exc:
         store.write_result(ResultRow(
             run_id=run_id, model=config.model, temperature=config.temperature,
@@ -69,7 +82,18 @@ def _run_api_design(client, store, run_id, config, task):
         print(f"ERROR ({exc})")
         return
 
-    result = score_api_design(client, task.prompt, task.rubric, response.text)
+    try:
+        result = score_api_design(client, task.prompt, task.rubric, response.text)
+    except Exception as exc:
+        store.write_result(ResultRow(
+            run_id=run_id, model=config.model, temperature=config.temperature,
+            prompt_variant=config.prompt_variant, task_id=task.task_id, task_type="api_design",
+            score=None, pass_fail=None, cost_usd=response.cost_usd, latency_ms=response.latency_ms,
+            timestamp=timestamp, raw_response=response.text, error=str(exc),
+        ))
+        print(f"ERROR ({exc})")
+        return
+
     store.write_result(ResultRow(
         run_id=run_id, model=config.model, temperature=config.temperature,
         prompt_variant=config.prompt_variant, task_id=task.task_id, task_type="api_design",
