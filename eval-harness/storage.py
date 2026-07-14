@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS results (
     score REAL,
     pass_fail TEXT,
     cost_usd REAL,
+    judge_cost_usd REAL,
     latency_ms REAL,
     timestamp TEXT NOT NULL,
     raw_response TEXT,
@@ -37,6 +38,7 @@ class ResultRow:
     timestamp: str
     raw_response: Optional[str]
     error: Optional[str]
+    judge_cost_usd: Optional[float] = None
 
 
 class ResultsStore:
@@ -52,11 +54,11 @@ class ResultsStore:
         conn.execute(
             """INSERT INTO results
                (run_id, model, temperature, prompt_variant, task_id, task_type,
-                score, pass_fail, cost_usd, latency_ms, timestamp, raw_response, error)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                score, pass_fail, cost_usd, judge_cost_usd, latency_ms, timestamp, raw_response, error)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (row.run_id, row.model, row.temperature, row.prompt_variant, row.task_id,
-             row.task_type, row.score, row.pass_fail, row.cost_usd, row.latency_ms,
-             row.timestamp, row.raw_response, row.error),
+             row.task_type, row.score, row.pass_fail, row.cost_usd, row.judge_cost_usd,
+             row.latency_ms, row.timestamp, row.raw_response, row.error),
         )
         conn.commit()
         conn.close()
@@ -70,7 +72,7 @@ class ResultsStore:
                 run_id=r["run_id"], model=r["model"], temperature=r["temperature"],
                 prompt_variant=r["prompt_variant"], task_id=r["task_id"],
                 task_type=r["task_type"], score=r["score"], pass_fail=r["pass_fail"],
-                cost_usd=r["cost_usd"], latency_ms=r["latency_ms"],
+                cost_usd=r["cost_usd"], judge_cost_usd=r["judge_cost_usd"], latency_ms=r["latency_ms"],
                 timestamp=r["timestamp"], raw_response=r["raw_response"], error=r["error"],
             )
             for r in cursor.fetchall()

@@ -6,6 +6,7 @@ from scoring.judge_scorer import score_api_design
 @dataclass
 class FakeLLMResponse:
     text: str
+    cost_usd: float = 0.01
 
 
 class FakeLLMClient:
@@ -23,6 +24,7 @@ def test_score_api_design_parses_valid_json():
     result = score_api_design(client, "Design a REST API for a todo app", "rubric text", "response text")
     assert result.score == 8.0
     assert result.error is None
+    assert result.judge_cost_usd == 0.01
 
 
 def test_score_api_design_retries_on_bad_json_then_succeeds():
@@ -30,6 +32,7 @@ def test_score_api_design_retries_on_bad_json_then_succeeds():
     result = score_api_design(client, "prompt", "rubric", "response")
     assert result.score == 5.0
     assert len(client.calls) == 2
+    assert result.judge_cost_usd == 0.02
 
 
 def test_score_api_design_gives_up_after_second_failure():
@@ -37,6 +40,7 @@ def test_score_api_design_gives_up_after_second_failure():
     result = score_api_design(client, "prompt", "rubric", "response")
     assert result.score is None
     assert result.error == "judge_parse_failed"
+    assert result.judge_cost_usd == 0.02
 
 
 def test_score_api_design_parses_json_wrapped_in_markdown_fences():

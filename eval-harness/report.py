@@ -17,10 +17,12 @@ def _write_csv(results, csv_path: str) -> None:
     with open(csv_path, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["run_id", "model", "temperature", "prompt_variant", "task_id",
-                          "task_type", "score", "pass_fail", "cost_usd", "latency_ms", "timestamp"])
+                          "task_type", "score", "pass_fail", "cost_usd", "judge_cost_usd",
+                          "latency_ms", "timestamp"])
         for r in results:
             writer.writerow([r.run_id, r.model, r.temperature, r.prompt_variant, r.task_id,
-                              r.task_type, r.score, r.pass_fail, r.cost_usd, r.latency_ms, r.timestamp])
+                              r.task_type, r.score, r.pass_fail, r.cost_usd, r.judge_cost_usd,
+                              r.latency_ms, r.timestamp])
 
 
 def _aggregate_by_config(results):
@@ -35,14 +37,17 @@ def _aggregate_by_config(results):
         judged_rows = [r for r in rows if r.task_type == "api_design" and r.score is not None]
         pass_count = sum(1 for r in codegen_rows if r.pass_fail == "pass")
         avg_judge_score = (sum(r.score for r in judged_rows) / len(judged_rows)) if judged_rows else None
-        total_cost = sum(r.cost_usd for r in rows if r.cost_usd is not None)
+        subject_cost = sum(r.cost_usd for r in rows if r.cost_usd is not None)
+        judge_cost = sum(r.judge_cost_usd for r in rows if r.judge_cost_usd is not None)
         latencies = [r.latency_ms for r in rows if r.latency_ms is not None]
         avg_latency = (sum(latencies) / len(latencies)) if latencies else None
         summary.append({
             "model": model, "temperature": temperature, "prompt_variant": variant,
             "codegen_pass_rate": (pass_count / len(codegen_rows)) if codegen_rows else None,
             "avg_judge_score": avg_judge_score,
-            "total_cost_usd": total_cost,
+            "subject_cost_usd": subject_cost,
+            "judge_cost_usd": judge_cost,
+            "total_cost_usd": subject_cost + judge_cost,
             "avg_latency_ms": avg_latency,
         })
     return summary
@@ -63,6 +68,8 @@ def _write_html(results, html_path: str) -> None:
             f"<td>{html.escape(s['prompt_variant'])}</td>"
             f"<td>{pass_rate}</td>"
             f"<td>{judge_score}</td>"
+            f"<td>${s['subject_cost_usd']:.4f}</td>"
+            f"<td>${s['judge_cost_usd']:.4f}</td>"
             f"<td>${s['total_cost_usd']:.4f}</td>"
             f"<td>{avg_latency}</td>"
             "</tr>"
@@ -92,7 +99,7 @@ def _write_html(results, html_path: str) -> None:
 <table>
 <thead>
 <tr><th>Model</th><th>Temp</th><th>Prompt Variant</th><th>Codegen Pass Rate</th>
-<th>Avg Judge Score</th><th>Total Cost</th><th>Avg Latency</th></tr>
+<th>Avg Judge Score</th><th>Subject Cost</th><th>Judge Cost</th><th>Total Cost</th><th>Avg Latency</th></tr>
 </thead>
 <tbody>
 {rows_html}

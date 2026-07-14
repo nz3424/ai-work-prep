@@ -8,3 +8,4 @@ class ScoreResult:
     pass_fail: Optional[str]
     raw_output: str
     error: Optional[str] = None
+    judge_cost_usd: Optional[float] = None
