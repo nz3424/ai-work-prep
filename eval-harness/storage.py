@@ -79,3 +79,27 @@ class ResultsStore:
         ]
         conn.close()
         return rows
+
+    def latest_run_id(self) -> Optional[str]:
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.execute("SELECT run_id FROM results ORDER BY id DESC LIMIT 1")
+        row = cursor.fetchone()
+        conn.close()
+        return row[0] if row else None
+
+    def results_for_run(self, run_id: str) -> list[ResultRow]:
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.execute("SELECT * FROM results WHERE run_id = ?", (run_id,))
+        rows = [
+            ResultRow(
+                run_id=r["run_id"], model=r["model"], temperature=r["temperature"],
+                prompt_variant=r["prompt_variant"], task_id=r["task_id"],
+                task_type=r["task_type"], score=r["score"], pass_fail=r["pass_fail"],
+                cost_usd=r["cost_usd"], judge_cost_usd=r["judge_cost_usd"], latency_ms=r["latency_ms"],
+                timestamp=r["timestamp"], raw_response=r["raw_response"], error=r["error"],
+            )
+            for r in cursor.fetchall()
+        ]
+        conn.close()
+        return rows

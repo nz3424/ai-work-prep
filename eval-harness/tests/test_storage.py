@@ -84,3 +84,60 @@ def test_nullable_fields_roundtrip_as_none():
     finally:
         if os.path.exists(path):
             os.remove(path)
+
+
+def test_latest_run_id_returns_none_for_empty_db():
+    fd, path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    os.remove(path)
+    try:
+        store = ResultsStore(path)
+        assert store.latest_run_id() is None
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+
+def test_latest_run_id_returns_most_recently_written_run():
+    fd, path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    os.remove(path)
+    try:
+        store = ResultsStore(path)
+        store.write_result(_make_row(run_id="run1", task_id="codegen_01"))
+        store.write_result(_make_row(run_id="run1", task_id="codegen_02"))
+        store.write_result(_make_row(run_id="run2", task_id="codegen_01"))
+        assert store.latest_run_id() == "run2"
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+
+def test_results_for_run_filters_to_matching_run_id():
+    fd, path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    os.remove(path)
+    try:
+        store = ResultsStore(path)
+        store.write_result(_make_row(run_id="run1", task_id="codegen_01"))
+        store.write_result(_make_row(run_id="run2", task_id="codegen_02"))
+        results = store.results_for_run("run1")
+        assert len(results) == 1
+        assert results[0].task_id == "codegen_01"
+        assert results[0].run_id == "run1"
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+
+def test_results_for_run_returns_empty_list_for_unknown_run_id():
+    fd, path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    os.remove(path)
+    try:
+        store = ResultsStore(path)
+        store.write_result(_make_row(run_id="run1"))
+        assert store.results_for_run("nonexistent") == []
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
