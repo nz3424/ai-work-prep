@@ -98,7 +98,7 @@ def _run_api_design(client, store, run_id, config, task):
         run_id=run_id, model=config.model, temperature=config.temperature,
         prompt_variant=config.prompt_variant, task_id=task.task_id, task_type="api_design",
         score=result.score, pass_fail=result.pass_fail, cost_usd=response.cost_usd,
-        latency_ms=response.latency_ms, timestamp=timestamp,
+        judge_cost_usd=result.judge_cost_usd, latency_ms=response.latency_ms, timestamp=timestamp,
         raw_response=response.text, error=result.error,
     ))
     print(f"score={result.score} ({response.latency_ms:.0f}ms, ${response.cost_usd:.4f})")

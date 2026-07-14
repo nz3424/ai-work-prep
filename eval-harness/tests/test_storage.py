@@ -56,6 +56,20 @@ def test_multiple_writes_accumulate():
             os.remove(path)
 
 
+def test_judge_cost_usd_roundtrips():
+    fd, path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    os.remove(path)
+    try:
+        store = ResultsStore(path)
+        store.write_result(_make_row(task_type="api_design", judge_cost_usd=0.015))
+        results = store.all_results()
+        assert results[0].judge_cost_usd == 0.015
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+
 def test_nullable_fields_roundtrip_as_none():
     fd, path = tempfile.mkstemp(suffix=".db")
     os.close(fd)

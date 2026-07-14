@@ -18,7 +18,7 @@ def test_run_writes_expected_number_of_rows(monkeypatch):
     monkeypatch.setattr(run_eval.LLMClient, "call", lambda self, **kwargs: fake_response)
 
     fake_codegen_result = MagicMock(score=1.0, pass_fail="pass", error=None)
-    fake_judge_result = MagicMock(score=7.0, pass_fail=None, error=None)
+    fake_judge_result = MagicMock(score=7.0, pass_fail=None, error=None, judge_cost_usd=0.005)
     monkeypatch.setattr(run_eval, "score_codegen", lambda code, test_code: fake_codegen_result)
     monkeypatch.setattr(run_eval, "score_api_design", lambda client, prompt, rubric, text: fake_judge_result)
 
@@ -32,6 +32,11 @@ def test_run_writes_expected_number_of_rows(monkeypatch):
         assert len(results) == expected_rows
         assert all(r.run_id == run_id for r in results)
         assert {r.task_type for r in results} == {"codegen", "api_design"}
+
+        codegen_rows = [r for r in results if r.task_type == "codegen"]
+        api_design_rows = [r for r in results if r.task_type == "api_design"]
+        assert all(r.judge_cost_usd is None for r in codegen_rows)
+        assert all(r.judge_cost_usd == 0.005 for r in api_design_rows)
     finally:
         if os.path.exists(db_path):
             os.remove(db_path)
@@ -74,7 +79,7 @@ def test_prompt_variant_suffix_is_applied(monkeypatch):
     monkeypatch.setattr(run_eval.LLMClient, "call", fake_call)
 
     fake_codegen_result = MagicMock(score=1.0, pass_fail="pass", error=None)
-    fake_judge_result = MagicMock(score=7.0, pass_fail=None, error=None)
+    fake_judge_result = MagicMock(score=7.0, pass_fail=None, error=None, judge_cost_usd=0.005)
     monkeypatch.setattr(run_eval, "score_codegen", lambda code, test_code: fake_codegen_result)
     monkeypatch.setattr(run_eval, "score_api_design", lambda client, prompt, rubric, text: fake_judge_result)
 
@@ -134,6 +139,7 @@ def test_run_records_error_row_when_scorer_raises(monkeypatch):
         assert all(r.error == "judge rate limited" for r in api_design_rows)
         assert all(r.score is None and r.pass_fail is None for r in api_design_rows)
         assert all(r.cost_usd == 0.001 and r.latency_ms == 100.0 for r in api_design_rows)
+        assert all(r.judge_cost_usd is None for r in api_design_rows)
     finally:
         if os.path.exists(db_path):
             os.remove(db_path)
