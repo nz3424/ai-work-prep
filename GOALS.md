@@ -62,8 +62,8 @@ comfortable with modern AI-assisted, end-to-end building.
 |---|---|---|
 | `docker-101/` | Track 1, Day 2 | Get fluent with Docker: Dockerfiles, Compose, registries |
 | `aws-deploy-demo/` | Track 1, Day 3 | Deploy the Day 2 container to AWS (ECS Fargate or Lambda) |
-| `agent-capstone/` | Track 1, Days 4–5 | Small end-to-end agent: loop + sandboxed tool execution, containerized, deployed |
-| `eval-harness/` | Track 1, Days 4–5 (superseded agent-capstone) | LLM eval harness comparing Opus/Sonnet/Haiku on code-gen + API-design tasks |
+| `agent-capstone/` | Track 1, Days 4–5 | Superseded by `eval-harness/` — see its README |
+| `eval-harness/` | Track 1, Days 4–5 | LLM eval harness: compare Claude models on code-gen + API-design tasks, Docker-sandboxed scoring, cost/quality tradeoffs |
 | `llm-training/` | Track 3, all days | Train a transformer from scratch; stretch: ternary (BitNet b1.58-style) quantization |
 | `hermes-assistant/` | Track 2, all days | Install, configure, and practice Hermes Agent for personal/work productivity |
 

@@ -1,36 +1,26 @@
 # agent-capstone
 
-**Maps to:** Itinerary Days 4–5 (Mon–Tue Jul 6–7) — see `../GOALS.md` for full context.
+**Maps to:** Itinerary Days 4-5 — see `../GOALS.md` for full context.
 
-## Goal
+## Status: superseded by eval-harness/
 
-Design and build a small, genuinely useful agent that exercises the full stack:
-an agent loop with a clear stop condition, tool calls executed in a sandboxed/
-containerized environment, packaged with Docker, deployed to AWS.
+This slot's chosen project is the **LLM Evaluation Harness** — see `../eval-harness/`
+for the actual implementation, `../docs/superpowers/specs/2026-07-06-eval-harness-design.md`
+for the design, and `../docs/superpowers/plans/2026-07-06-eval-harness.md` for the plan.
 
-## Project idea (pick one — see itinerary PDF for full descriptions)
+## Parked idea: AI Coding Agent for Non-Coders
 
-- [ ] Portfolio-company digest agent
-- [ ] Deal-memo drafting assistant
-- [ ] Meeting-notes → CRM sync tool
-- [ ] (or something else that came up during ideation)
+An earlier brainstorm scoped a second project — an agent that turns natural-language
+app descriptions into working FastAPI+React apps (template skeleton + free-form
+business logic + one deterministic build-error retry). This was parked as a
+stretch/afterward item, not required for this capstone. If picked back up later, it
+still needs its own design spec written before implementation (the architecture was
+discussed but never formally written down).
 
-**Chosen idea:** _(fill in once decided)_
+## Original idea list (for history)
 
-## Tasks (mirrors Notion)
-
-- [ ] Study the ReAct loop & loop engineering
-- [ ] Study agent harness engineering
-- [ ] Compare agent sandboxing approaches (Docker Sandboxes vs. E2B vs. Modal)
-- [ ] Build the capstone project end-to-end
-- [ ] Write a README/postmortem: what worked, what needs hardening, questions for the team
-- [ ] Plan the learning runway to July 20 (stretch topics)
-
-## Status
-
-Not started. Depends on `docker-101/` and `aws-deploy-demo/` for the container +
-deploy pieces.
-
-## Notes
-
-(Architecture sketches, loop design decisions, sandboxing choice + why, here.)
+- [x] LLM Evaluation Harness — chosen, see `../eval-harness/`
+- [ ] AI Coding Agent for Non-Coders — parked, see note above
+- [ ] Portfolio-company digest agent — not pursued
+- [ ] Deal-memo drafting assistant — not pursued
+- [ ] Meeting-notes to CRM sync tool — not pursued
