@@ -943,6 +943,10 @@ and applying from the worktree would create disconnected state.
 
 - [ ] **Step 2: Apply (after explicit confirmation)**
 
+Precondition: the GitHub deploy key must already exist at `files/github_deploy_key`
+(generate it per the README's "First-time setup" Step 1 if you haven't) —
+`terraform plan` reads this file directly and fails immediately if it's missing.
+
 ```bash
 terraform init
 terraform plan
@@ -969,17 +973,30 @@ default branch; `tmux`/`python3.11` both report versions with no errors.
 
 - [ ] **Step 4: Verify S3 write access from the instance**
 
-Still connected via SSH:
+The IAM policy (Task 4) deliberately scopes S3 access to exactly the
+checkpoint bucket's ARN — it does not grant `s3:ListAllMyBuckets`, so
+`aws s3 ls` with no bucket argument won't work from inside the instance.
+Get the bucket name from Terraform first, from your **local** shell
+(not the SSH session):
+
+```bash
+# Run from llm-training/terraform, before connecting via SSH:
+BUCKET=$(terraform output -raw checkpoint_bucket_name)
+echo "Bucket: $BUCKET"   # note this value for the SSH session below
+```
+
+Then connect via SSH and use that bucket name directly:
 ```bash
 echo "fleet smoke test" > /tmp/smoke.txt
-BUCKET=$(aws s3 ls | grep llm-training-fleet-checkpoints | awk '{print $3}')
-aws s3 cp /tmp/smoke.txt "s3://$BUCKET/smoke.txt"
-aws s3 ls "s3://$BUCKET/"
+aws s3 cp /tmp/smoke.txt "s3://<BUCKET-FROM-ABOVE>/smoke.txt"
+aws s3 ls "s3://<BUCKET-FROM-ABOVE>/"
 rm /tmp/smoke.txt
 ```
 
 Expected: the `cp` succeeds and `smoke.txt` shows up in the `ls` output —
-confirms the IAM instance profile grants exactly the S3 access it needs.
+confirms the IAM instance profile grants exactly the S3 access it needs
+(and no more — `aws s3 ls` with no bucket argument would fail here, which
+is correct behavior, not a bug).
 Exit the SSH session (`exit`) once confirmed.
 
 - [ ] **Step 5: Verify the stop/start cycle and IP stability**
