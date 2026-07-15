@@ -47,13 +47,40 @@ class ResultRow:
     effort: Optional[str] = None
 
 
+EXPECTED_COLUMNS = [
+    "id", "run_id", "label", "model", "temperature", "effort", "prompt_variant",
+    "task_id", "task_type", "score", "pass_fail", "cost_usd", "judge_cost_usd",
+    "latency_ms", "timestamp", "raw_response", "error",
+]
+
+
 class ResultsStore:
     def __init__(self, db_path: str):
         self.db_path = db_path
         conn = sqlite3.connect(db_path)
         conn.execute(SCHEMA)
+        self._migrate_if_stale(conn)
         conn.commit()
         conn.close()
+
+    def _migrate_if_stale(self, conn: sqlite3.Connection) -> None:
+        # The schema has changed shape (new columns, relaxed constraints) more than
+        # once as MODEL_CONFIGS evolved. ALTER TABLE ADD COLUMN can't fix a stale
+        # NOT NULL constraint on an existing column, so rebuild from EXPECTED_COLUMNS
+        # instead, carrying over whatever data already exists.
+        actual_columns = [r[1] for r in conn.execute("PRAGMA table_info(results)")]
+        if actual_columns == EXPECTED_COLUMNS:
+            return
+        conn.execute("ALTER TABLE results RENAME TO results_old")
+        conn.execute(SCHEMA)
+        targets = [c for c in EXPECTED_COLUMNS if c != "id"]
+        # label predates this migration and is NOT NULL with no default, so rows from
+        # before it existed need an explicit backfill value rather than NULL.
+        sources = [c if c in actual_columns else ("'legacy'" if c == "label" else "NULL") for c in targets]
+        conn.execute(
+            f"INSERT INTO results ({', '.join(targets)}) SELECT {', '.join(sources)} FROM results_old"
+        )
+        conn.execute("DROP TABLE results_old")
 
     def write_result(self, row: ResultRow) -> None:
         conn = sqlite3.connect(self.db_path)
