@@ -5,13 +5,13 @@ data "aws_ssm_parameter" "al2023_ami" {
 }
 
 resource "aws_instance" "fleet" {
-  ami                    = data.aws_ssm_parameter.al2023_ami.value
-  instance_type           = var.instance_type
-  subnet_id                 = aws_subnet.fleet.id
+  ami                         = data.aws_ssm_parameter.al2023_ami.value
+  instance_type               = var.instance_type
+  subnet_id                   = aws_subnet.fleet.id
   vpc_security_group_ids      = [aws_security_group.fleet_ssh.id]
-  iam_instance_profile           = aws_iam_instance_profile.fleet.name
-  key_name                          = aws_key_pair.fleet.key_name
-  associate_public_ip_address          = true
+  iam_instance_profile        = aws_iam_instance_profile.fleet.name
+  key_name                    = aws_key_pair.fleet.key_name
+  associate_public_ip_address = true
 
   # Explicit rather than trusting the AL2023 AMI's default (~8GB) — enough
   # headroom for Python packages (torch, etc., installed later by
