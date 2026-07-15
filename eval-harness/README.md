@@ -38,6 +38,15 @@ writes results to `eval_results.db`, and regenerates `report.html` / `report.csv
 the end. Re-running appends a new run rather than overwriting — all runs stay in the
 same database, tagged by `run_id`.
 
+The report defaults to showing only the run that just completed, so results from
+different runs are never silently blended together. Under the hood,
+`report.generate_report(db_path, html_path, csv_path, run_id=...)` accepts `"latest"`
+(the default — the most recently completed run), a specific `run_id` string to look at
+one run in isolation, or `"all"` to include every run ever recorded. When `"all"` (or
+any query spanning multiple runs) is used, each run's numbers are kept in their own
+rows rather than averaged together — a `Run ID` column identifies which run each row
+came from, in both the HTML table and the CSV export.
+
 ## Running the harness's own tests
 
 ```bash

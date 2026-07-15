@@ -108,5 +108,5 @@ if __name__ == "__main__":
     completed_run_id = run(DB_PATH)
     print(f"\nRun {completed_run_id} complete. Generating report...")
     from report import generate_report
-    generate_report(DB_PATH, "report.html", "report.csv")
+    generate_report(DB_PATH, "report.html", "report.csv", run_id=completed_run_id)
     print("Report written to report.html and report.csv")
