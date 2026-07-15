@@ -24,4 +24,7 @@ chmod 600 /home/ec2-user/.ssh/config
 chown ec2-user:ec2-user /home/ec2-user/.ssh/config
 
 # --- Clone once at boot; every run does `git pull` from here on ---
-sudo -u ec2-user git clone ${github_repo_ssh_url} /home/ec2-user/repo
+# -H sets $HOME=/home/ec2-user for the sudo'd command — without it, sudoers'
+# env_reset can leave $HOME=/root, so ssh looks for the deploy key in
+# /root/.ssh/ instead of /home/ec2-user/.ssh/ and the clone fails auth.
+sudo -u ec2-user -H git clone ${github_repo_ssh_url} /home/ec2-user/repo
