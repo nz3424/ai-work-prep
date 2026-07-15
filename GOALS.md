@@ -35,12 +35,24 @@ comfortable with modern AI-assisted, end-to-end building.
 - Practicing it on real work-adjacent tasks: email/calendar triage, meeting
   summaries, scheduled digests
 
-## Current priority order (as of 2026-07-14)
+## Current priority order (as of 2026-07-15)
 
-1. **`eval-harness/`** — LLM evaluation harness (only Task 1/8 done; this was
-   already in flight before Track 3 was added)
-2. **Track 3** — LLM training + ternary quantization (`llm-training/`) — most
-   directly relevant to the actual role, per the 2026-07-14 update
+1. **`eval-harness/`** — DONE. All 8 planned tasks implemented (SQLite
+   storage, Anthropic client wrapper, Docker-sandboxed code-gen scorer,
+   Opus-as-judge API-design scorer, model configs/task suite, sequential
+   runner, HTML/CSV report generator, docs), plus several follow-on fixes
+   (temperature→effort handling for Sonnet configs, judge cost tracked
+   separately from subject cost, reports scoped to the latest run by
+   default, SQLite schema migration). See `eval-harness/README.md`'s
+   "Status"/"Findings" sections for the latest full run's results.
+2. **Track 3 — `llm-training/`** — infra done, core work not started. The
+   `llm-training-fleet` Terraform plan (dedicated VPC, EC2 training box,
+   S3 checkpoint bucket, fleet start/stop/ssh scripts) is fully built and
+   provisioned for real on AWS, verified end-to-end (SSH, S3 read/write,
+   stop/start Elastic IP stability), and left stopped. The actual Track 3
+   goal — tokenizer, from-scratch Transformer, training loop, and the
+   BitNet b1.58 ternary-quantization stretch goal — hasn't been started
+   yet; see `llm-training/README.md`'s task checklist.
 3. **Track 2** — Hermes Agent (`hermes-assistant/`, not yet started)
 4. **Track 1 remainder** — `agent-capstone/` (the infra side of Track 1 is
    otherwise done: Docker, AWS deploy, and CI/CD all shipped; only the
