@@ -567,6 +567,17 @@ resource "aws_instance" "fleet" {
   key_name                          = aws_key_pair.fleet.key_name
   associate_public_ip_address          = true
 
+  # Explicit rather than trusting the AL2023 AMI's default (~8GB) — enough
+  # headroom for Python packages (torch, etc., installed later by
+  # run_fleet.sh) plus checkpoints/logs, without over-provisioning like the
+  # DB2 stack's 2TB (sized for datasets far larger than tinyshakespeare-scale
+  # data). Resizable later in-place (bump this value + `terraform apply`,
+  # then `growpart`/`xfs_growfs` on the box) if it's ever not enough.
+  root_block_device {
+    volume_size = 20
+    volume_type = "gp3"
+  }
+
   user_data = templatefile("${path.module}/templates/user_data.sh.tpl", {
     github_deploy_key   = file("${path.module}/${var.github_deploy_key_path}")
     github_repo_ssh_url = var.github_repo_ssh_url
@@ -869,8 +880,11 @@ cd llm-training/fleet
 
 - `t3.medium`, stopped by default: ~$0.04/hr only while running.
 - A **stopped** (not terminated) instance keeps its EBS volume — setup and
-  cloned repo persist across sessions — but still incurs a small EBS
-  storage charge (a few cents/month at this volume size).
+  cloned repo persist across sessions. The 20GB gp3 root volume costs
+  ~$1.60/mo regardless of instance state (much smaller than the DB2
+  stack's 2TB, since this project's data/checkpoints are tinyshakespeare-scale,
+  not the larger datasets that setup was sized for). Resizable in-place
+  later if it's ever not enough — see the comment in `ec2.tf`.
 - Elastic IP: free while attached to a running instance; ~$0.005/hr
   (~$3.60/mo if never started) while the instance is stopped. The
   tradeoff for a stable, hardcode-able address — see "Add an SSH alias"
