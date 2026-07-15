@@ -4,8 +4,8 @@
 
 ## What this is
 
-An LLM evaluation harness that compares Claude Opus/Sonnet/Haiku (plus prompt and
-temperature variants) on two task types:
+An LLM evaluation harness that compares Claude Opus/Sonnet/Haiku (plus prompt-variant
+and Sonnet effort-level variants) on two task types:
 
 - **Code generation** (5 tasks) — scored by running real pytest unit tests inside a
   sandboxed, network-disabled Docker container.
@@ -65,9 +65,30 @@ implementation plan.
 
 ## Status
 
-(Update as you go: what ran, what you found, what's fragile.)
+Clean run (`run_id=dd65b66d`) completed with the `output_config.effort` axis in place:
+6 subject configs (`sonnet-default`, `sonnet-terse`, `sonnet-effort-low`,
+`sonnet-effort-high`, `sonnet-effort-xhigh`, `haiku-default`) × 10 tasks each, no
+errored rows. `temperature` is recorded as `null` for every Sonnet config (the API
+silently drops it) and populated only for Haiku, which still accepts it.
 
 ## Findings
 
-(Fill in after the first full run — e.g. which model won on cost/quality, any
-surprising failures.)
+- **Codegen pass rate is saturated at 100% across every config** — as expected, the
+  interesting signal is in judge score, cost, and latency, not pass/fail.
+- **`xhigh` effort scored surprisingly poorly on API-design (4.6/10 avg)** — well below
+  `sonnet-effort-low` and `sonnet-effort-high` (9.8/10 each) despite costing about the
+  same and taking longer (11.1s vs 9.2-10.2s avg latency). Two of five xhigh API-design
+  tasks scored 3.0 and one scored 0.0. This one run isn't enough to conclude `xhigh`
+  is worse in general for this task type — it's worth a second run to see if it
+  replicates before drawing a conclusion.
+- **`sonnet-default` and `sonnet-effort-high` send byte-identical requests** (both
+  `effort="high"`) and landed close but not identical on judge score (9.4 vs 9.8) —
+  a reminder that the LLM judge itself has some run-to-run variance, separate from
+  the effort axis being tested.
+- **`sonnet-effort-low` matched `sonnet-effort-high` on judge score (9.8 vs 9.8)** while
+  costing slightly less ($0.346 vs $0.377 total) — on this task set, low effort was not
+  a meaningful quality tradeoff.
+- **`sonnet-terse` was the cheapest non-Haiku option** ($0.180 total, 4.6s avg latency)
+  with only a modest judge-score dip (8.4 vs 9.4-9.8 for the `default` prompt variant).
+- **Haiku is cheapest overall** ($0.299 total) but scored lowest on judge quality
+  (6.2/10) among non-anomalous configs.
