@@ -47,7 +47,7 @@ resource "aws_route_table_association" "fleet" {
 
 resource "aws_security_group" "fleet_ssh" {
   name        = "${var.project_name}-ssh-sg"
-  description = "SSH from the current session's IP only — never 0.0.0.0/0"
+  description = "SSH from the current session IP only - never 0.0.0.0/0"
   vpc_id      = aws_vpc.fleet.id
 
   ingress {
