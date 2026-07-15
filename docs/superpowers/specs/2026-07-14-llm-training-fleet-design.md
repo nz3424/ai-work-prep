@@ -29,8 +29,14 @@ minutes even on CPU), so a Modal-style GPU-rental tier is premature — it can
 be added later as its own follow-up if the BitNet stretch-goal comparisons
 end up needing real GPU hours.
 
-- **Instance:** `t3.medium` (CPU-only, ~$0.04/hr). Swappable to a GPU
-  instance type later via a one-line Terraform change if larger runs need it.
+- **Instance:** `t3.medium` (CPU-only, ~$0.04/hr) is the design default and
+  `var.instance_type`'s default in `variables.tf`. The instance actually
+  provisioned on this AWS account runs `t3.small` instead (~$0.0208/hr) —
+  this account's Free Tier restriction blocks `t3.medium`, so
+  `terraform.tfvars` overrides `instance_type` locally (gitignored, not
+  committed). Swappable to a larger CPU type or a GPU instance type later via
+  the same one-line Terraform variable if larger runs need it — nothing else
+  in this design depends on the exact instance size.
 - **Lifecycle:** stopped by default, started/stopped on demand via scripts —
   not left running continuously. A stopped (not terminated) instance retains
   its EBS volume, so setup/dependencies persist across sessions.

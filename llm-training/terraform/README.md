@@ -2,9 +2,16 @@
 
 Provisions: a dedicated VPC (single public subnet, no NAT), an SSH-only
 security group scoped to your current IP, an S3 bucket for checkpoint/log
-archival, an IAM role+instance profile scoped to that bucket, and a
-`t3.medium` EC2 instance that clones this repo at boot via a read-only
-GitHub deploy key.
+archival, an IAM role+instance profile scoped to that bucket, and an EC2
+instance (`t3.medium` by default via `var.instance_type`) that clones this
+repo at boot via a read-only GitHub deploy key.
+
+**This account currently runs `t3.small` instead of the `t3.medium`
+default** — this AWS account's Free Tier restriction blocks `t3.medium`,
+so `terraform.tfvars` (gitignored, not committed) overrides
+`instance_type = "t3.small"`. If you rebuild the fleet from scratch on this
+account, set that override again or `apply` will fail; see "Provision"
+below.
 
 Separate from `aws-deploy-demo/terraform/` — its own VPC, its own state,
 independent teardown.
@@ -53,6 +60,11 @@ working until you fix it (fails safe, never opens to `0.0.0.0/0`).
 cp terraform.tfvars.example terraform.tfvars   # then edit my_ip_cidr
 ```
 
+If `terraform apply` rejects the `t3.medium` default with a Free Tier or
+account-limit error, also add `instance_type = "t3.small"` to
+`terraform.tfvars` — this account has hit that restriction before (see
+"Provisions" above).
+
 ### 3. Provision
 
 ```bash
@@ -99,7 +111,10 @@ cd llm-training/fleet
 
 ## Cost notes
 
-- `t3.medium`, stopped by default: ~$0.04/hr only while running.
+- `t3.medium` (design default): ~$0.04/hr only while running. `t3.small`
+  (this account's actual instance, per the Free Tier restriction above):
+  ~$0.0208/hr. Either way, stopped by default — not billed for compute
+  while stopped.
 - A **stopped** (not terminated) instance keeps its EBS volume — setup and
   cloned repo persist across sessions. The 20GB gp3 root volume costs
   ~$1.60/mo regardless of instance state (much smaller than the DB2
