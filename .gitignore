@@ -37,6 +37,8 @@ venv/
 *.tfstate.*
 .terraform/
 llm-training/terraform/files/
+llm-training/terraform/*.tfvars
+!llm-training/terraform/terraform.tfvars.example
 
 # --- Editor ---
 .vscode/
