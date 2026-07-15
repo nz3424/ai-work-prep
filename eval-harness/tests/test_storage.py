@@ -7,8 +7,10 @@ from storage import ResultsStore, ResultRow
 def _make_row(**overrides):
     defaults = dict(
         run_id="run1",
+        label="sonnet-default",
         model="claude-sonnet-5",
-        temperature=0.2,
+        temperature=None,
+        effort="high",
         prompt_variant="default",
         task_id="codegen_01",
         task_type="codegen",
@@ -51,6 +53,35 @@ def test_multiple_writes_accumulate():
         results = store.all_results()
         assert len(results) == 2
         assert {r.task_id for r in results} == {"codegen_01", "codegen_02"}
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+
+def test_label_and_effort_roundtrip():
+    fd, path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    os.remove(path)
+    try:
+        store = ResultsStore(path)
+        store.write_result(_make_row(label="sonnet-effort-xhigh", effort="xhigh"))
+        results = store.all_results()
+        assert results[0].label == "sonnet-effort-xhigh"
+        assert results[0].effort == "xhigh"
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+
+def test_temperature_none_roundtrips_for_effort_only_configs():
+    fd, path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    os.remove(path)
+    try:
+        store = ResultsStore(path)
+        store.write_result(_make_row(temperature=None))
+        results = store.all_results()
+        assert results[0].temperature is None
     finally:
         if os.path.exists(path):
             os.remove(path)

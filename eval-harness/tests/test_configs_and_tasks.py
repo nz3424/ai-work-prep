@@ -14,6 +14,23 @@ def test_subject_configs_exclude_opus():
     assert "claude-opus-4-8" not in subject_models
 
 
+def test_no_sonnet_hot_config():
+    labels = {c.label for c in MODEL_CONFIGS}
+    assert "sonnet-hot" not in labels
+
+
+def test_sonnet_configs_have_explicit_effort():
+    sonnet_configs = [c for c in MODEL_CONFIGS if c.model == "claude-sonnet-5"]
+    assert len(sonnet_configs) > 0
+    assert all(c.effort is not None for c in sonnet_configs)
+
+
+def test_haiku_config_has_no_effort():
+    haiku_configs = [c for c in MODEL_CONFIGS if "haiku" in c.model]
+    assert len(haiku_configs) > 0
+    assert all(c.effort is None for c in haiku_configs)
+
+
 def test_five_codegen_tasks_with_unique_ids():
     assert len(CODEGEN_TASKS) == 5
     ids = [t.task_id for t in CODEGEN_TASKS]

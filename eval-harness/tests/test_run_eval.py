@@ -42,6 +42,66 @@ def test_run_writes_expected_number_of_rows(monkeypatch):
             os.remove(db_path)
 
 
+def test_temperature_stored_as_none_for_sonnet_but_recorded_for_haiku(monkeypatch):
+    fd, db_path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    os.remove(db_path)
+
+    fake_response = MagicMock(text="fake code", cost_usd=0.001, latency_ms=100.0)
+    monkeypatch.setattr(run_eval.LLMClient, "call", lambda self, **kwargs: fake_response)
+
+    fake_codegen_result = MagicMock(score=1.0, pass_fail="pass", error=None)
+    fake_judge_result = MagicMock(score=7.0, pass_fail=None, error=None, judge_cost_usd=0.005)
+    monkeypatch.setattr(run_eval, "score_codegen", lambda code, test_code: fake_codegen_result)
+    monkeypatch.setattr(run_eval, "score_api_design", lambda client, prompt, rubric, text: fake_judge_result)
+
+    try:
+        run_eval.run(db_path)
+        store = ResultsStore(db_path)
+        results = store.all_results()
+
+        sonnet_rows = [r for r in results if r.model == "claude-sonnet-5"]
+        assert sonnet_rows
+        assert all(r.temperature is None for r in sonnet_rows)
+
+        haiku_rows = [r for r in results if r.model == "claude-haiku-4-5-20251001"]
+        assert haiku_rows
+        assert all(r.temperature == 0.2 for r in haiku_rows)
+    finally:
+        if os.path.exists(db_path):
+            os.remove(db_path)
+
+
+def test_effort_stored_per_config_label(monkeypatch):
+    fd, db_path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    os.remove(db_path)
+
+    fake_response = MagicMock(text="fake code", cost_usd=0.001, latency_ms=100.0)
+    monkeypatch.setattr(run_eval.LLMClient, "call", lambda self, **kwargs: fake_response)
+
+    fake_codegen_result = MagicMock(score=1.0, pass_fail="pass", error=None)
+    fake_judge_result = MagicMock(score=7.0, pass_fail=None, error=None, judge_cost_usd=0.005)
+    monkeypatch.setattr(run_eval, "score_codegen", lambda code, test_code: fake_codegen_result)
+    monkeypatch.setattr(run_eval, "score_api_design", lambda client, prompt, rubric, text: fake_judge_result)
+
+    try:
+        run_eval.run(db_path)
+        store = ResultsStore(db_path)
+        results = store.all_results()
+
+        xhigh_rows = [r for r in results if r.label == "sonnet-effort-xhigh"]
+        assert xhigh_rows
+        assert all(r.effort == "xhigh" for r in xhigh_rows)
+
+        haiku_rows = [r for r in results if r.label == "haiku-default"]
+        assert haiku_rows
+        assert all(r.effort is None for r in haiku_rows)
+    finally:
+        if os.path.exists(db_path):
+            os.remove(db_path)
+
+
 def test_run_records_error_row_on_api_failure(monkeypatch):
     fd, db_path = tempfile.mkstemp(suffix=".db")
     os.close(fd)
