@@ -56,7 +56,15 @@ exact target architecture.
 
 ## Status
 
-Not started as of 2026-07-14 — track just added.
+Infra done, core work not started (as of 2026-07-15). The `llm-training-fleet`
+Terraform plan (`terraform/`, `fleet/`) is fully built and applied for real on
+AWS: dedicated VPC, EC2 training box (currently `t3.small` — the design's
+`t3.medium` default is blocked by this account's Free Tier restriction), S3
+checkpoint bucket, and `fleet_start.sh`/`fleet_stop.sh`/`fleet_ssh.sh`. Verified
+end-to-end (SSH + deploy key + repo clone, S3 write/read via the instance's
+scoped IAM role, Elastic IP stability across a stop/start cycle) and left
+stopped. None of the Core/Stretch tasks above (tokenizer, transformer,
+training loop, ternary quantization) have been started yet.
 
 ## Notes
 
