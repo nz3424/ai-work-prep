@@ -22,7 +22,7 @@ self-contained HTML report (`report.html`) plus a CSV export (`report.csv`).
 cd eval-harness
 python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-export ANTHROPIC_API_KEY=sk-ant-...
+export ANTHROPIC_EVAL_HARNESS_API_KEY=sk-ant-...
 ```
 
 Docker Desktop must be running (code-gen tasks execute inside containers).
