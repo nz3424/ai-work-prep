@@ -15,13 +15,15 @@ def test_generate_report_creates_html_and_csv():
     try:
         store = ResultsStore(db_path)
         store.write_result(ResultRow(
-            run_id="run1", model="claude-sonnet-5", temperature=0.2, prompt_variant="default",
+            run_id="run1", label="sonnet-default", model="claude-sonnet-5", temperature=None,
+            effort="high", prompt_variant="default",
             task_id="codegen_01", task_type="codegen", score=1.0, pass_fail="pass",
             cost_usd=0.002, latency_ms=300.0, timestamp="2026-07-06T00:00:00",
             raw_response="code", error=None,
         ))
         store.write_result(ResultRow(
-            run_id="run1", model="claude-sonnet-5", temperature=0.2, prompt_variant="default",
+            run_id="run1", label="sonnet-default", model="claude-sonnet-5", temperature=None,
+            effort="high", prompt_variant="default",
             task_id="apidesign_01", task_type="api_design", score=8.0, pass_fail=None,
             cost_usd=0.003, judge_cost_usd=0.02, latency_ms=500.0, timestamp="2026-07-06T00:00:01",
             raw_response="design", error=None,
@@ -34,6 +36,7 @@ def test_generate_report_creates_html_and_csv():
         with open(html_path) as f:
             content = f.read()
         assert "claude-sonnet-5" in content
+        assert "sonnet-default" in content
         assert "<canvas" in content
 
         with open(csv_path) as f:
@@ -50,13 +53,15 @@ def test_generate_report_creates_html_and_csv():
 
 def test_aggregate_reports_subject_and_judge_cost_separately():
     codegen_row = ResultRow(
-        run_id="run1", model="claude-sonnet-5", temperature=0.2, prompt_variant="default",
+        run_id="run1", label="sonnet-default", model="claude-sonnet-5", temperature=None,
+        effort="high", prompt_variant="default",
         task_id="codegen_01", task_type="codegen", score=1.0, pass_fail="pass",
         cost_usd=0.002, latency_ms=300.0, timestamp="2026-07-06T00:00:00",
         raw_response="code", error=None,
     )
     api_design_row = ResultRow(
-        run_id="run1", model="claude-sonnet-5", temperature=0.2, prompt_variant="default",
+        run_id="run1", label="sonnet-default", model="claude-sonnet-5", temperature=None,
+        effort="high", prompt_variant="default",
         task_id="apidesign_01", task_type="api_design", score=8.0, pass_fail=None,
         cost_usd=0.003, judge_cost_usd=0.02, latency_ms=500.0, timestamp="2026-07-06T00:00:01",
         raw_response="design", error=None,
@@ -72,13 +77,15 @@ def test_aggregate_reports_subject_and_judge_cost_separately():
 
 def test_aggregate_excludes_errored_codegen_rows_from_pass_rate():
     passing_row = ResultRow(
-        run_id="run1", model="claude-sonnet-5", temperature=0.2, prompt_variant="default",
+        run_id="run1", label="sonnet-default", model="claude-sonnet-5", temperature=None,
+        effort="high", prompt_variant="default",
         task_id="codegen_01", task_type="codegen", score=1.0, pass_fail="pass",
         cost_usd=0.002, latency_ms=300.0, timestamp="2026-07-06T00:00:00",
         raw_response="code", error=None,
     )
     errored_row = ResultRow(
-        run_id="run1", model="claude-sonnet-5", temperature=0.2, prompt_variant="default",
+        run_id="run1", label="sonnet-default", model="claude-sonnet-5", temperature=None,
+        effort="high", prompt_variant="default",
         task_id="codegen_02", task_type="codegen", score=None, pass_fail=None,
         cost_usd=None, latency_ms=None, timestamp="2026-07-06T00:00:01",
         raw_response=None, error="rate limited",
@@ -100,13 +107,15 @@ def test_generate_report_defaults_to_latest_run_only():
     try:
         store = ResultsStore(db_path)
         store.write_result(ResultRow(
-            run_id="run1", model="claude-sonnet-5", temperature=0.2, prompt_variant="default",
+            run_id="run1", label="sonnet-default", model="claude-sonnet-5", temperature=None,
+            effort="high", prompt_variant="default",
             task_id="codegen_01", task_type="codegen", score=1.0, pass_fail="pass",
             cost_usd=0.001, latency_ms=100.0, timestamp="2026-07-06T00:00:00",
             raw_response="code", error=None,
         ))
         store.write_result(ResultRow(
-            run_id="run2", model="claude-sonnet-5", temperature=0.2, prompt_variant="default",
+            run_id="run2", label="sonnet-default", model="claude-sonnet-5", temperature=None,
+            effort="high", prompt_variant="default",
             task_id="codegen_01", task_type="codegen", score=0.0, pass_fail="fail",
             cost_usd=0.001, latency_ms=100.0, timestamp="2026-07-06T00:00:01",
             raw_response="code", error=None,
@@ -134,13 +143,15 @@ def test_generate_report_run_id_all_keeps_runs_separate_not_blended():
     try:
         store = ResultsStore(db_path)
         store.write_result(ResultRow(
-            run_id="run1", model="claude-sonnet-5", temperature=0.2, prompt_variant="default",
+            run_id="run1", label="sonnet-default", model="claude-sonnet-5", temperature=None,
+            effort="high", prompt_variant="default",
             task_id="codegen_01", task_type="codegen", score=1.0, pass_fail="pass",
             cost_usd=0.001, latency_ms=100.0, timestamp="2026-07-06T00:00:00",
             raw_response="code", error=None,
         ))
         store.write_result(ResultRow(
-            run_id="run2", model="claude-sonnet-5", temperature=0.2, prompt_variant="default",
+            run_id="run2", label="sonnet-default", model="claude-sonnet-5", temperature=None,
+            effort="high", prompt_variant="default",
             task_id="codegen_01", task_type="codegen", score=0.0, pass_fail="fail",
             cost_usd=0.001, latency_ms=100.0, timestamp="2026-07-06T00:00:01",
             raw_response="code", error=None,
@@ -160,13 +171,15 @@ def test_generate_report_run_id_all_keeps_runs_separate_not_blended():
 
 def test_aggregate_by_config_keeps_different_run_ids_in_separate_groups():
     run1_row = ResultRow(
-        run_id="run1", model="claude-sonnet-5", temperature=0.2, prompt_variant="default",
+        run_id="run1", label="sonnet-default", model="claude-sonnet-5", temperature=None,
+        effort="high", prompt_variant="default",
         task_id="codegen_01", task_type="codegen", score=1.0, pass_fail="pass",
         cost_usd=0.002, latency_ms=300.0, timestamp="2026-07-06T00:00:00",
         raw_response="code", error=None,
     )
     run2_row = ResultRow(
-        run_id="run2", model="claude-sonnet-5", temperature=0.2, prompt_variant="default",
+        run_id="run2", label="sonnet-default", model="claude-sonnet-5", temperature=None,
+        effort="high", prompt_variant="default",
         task_id="codegen_01", task_type="codegen", score=0.0, pass_fail="fail",
         cost_usd=0.002, latency_ms=300.0, timestamp="2026-07-06T00:00:01",
         raw_response="code", error=None,

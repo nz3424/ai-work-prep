@@ -20,22 +20,25 @@ def generate_report(db_path: str, html_path: str, csv_path: str, run_id: str = "
 def _write_csv(results, csv_path: str) -> None:
     with open(csv_path, "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["run_id", "model", "temperature", "prompt_variant", "task_id",
-                          "task_type", "score", "pass_fail", "cost_usd", "judge_cost_usd",
+        writer.writerow(["run_id", "label", "model", "temperature", "effort", "prompt_variant",
+                          "task_id", "task_type", "score", "pass_fail", "cost_usd", "judge_cost_usd",
                           "latency_ms", "timestamp"])
         for r in results:
-            writer.writerow([r.run_id, r.model, r.temperature, r.prompt_variant, r.task_id,
-                              r.task_type, r.score, r.pass_fail, r.cost_usd, r.judge_cost_usd,
+            writer.writerow([r.run_id, r.label, r.model, r.temperature, r.effort, r.prompt_variant,
+                              r.task_id, r.task_type, r.score, r.pass_fail, r.cost_usd, r.judge_cost_usd,
                               r.latency_ms, r.timestamp])
 
 
 def _aggregate_by_config(results):
     groups = defaultdict(list)
     for r in results:
-        groups[(r.run_id, r.model, r.temperature, r.prompt_variant)].append(r)
+        # label is the primary key here — it's the only field that reliably
+        # distinguishes configs that otherwise share model/temperature/variant
+        # (e.g. sonnet-default and sonnet-effort-high both send effort="high").
+        groups[(r.run_id, r.label, r.model, r.temperature, r.effort, r.prompt_variant)].append(r)
 
     summary = []
-    for (run_id, model, temperature, variant), rows in groups.items():
+    for (run_id, label, model, temperature, effort, variant), rows in groups.items():
         # exclude rows that errored before scoring, matching the judge metric's policy
         codegen_rows = [r for r in rows if r.task_type == "codegen" and r.pass_fail is not None]
         judged_rows = [r for r in rows if r.task_type == "api_design" and r.score is not None]
@@ -46,7 +49,8 @@ def _aggregate_by_config(results):
         latencies = [r.latency_ms for r in rows if r.latency_ms is not None]
         avg_latency = (sum(latencies) / len(latencies)) if latencies else None
         summary.append({
-            "run_id": run_id, "model": model, "temperature": temperature, "prompt_variant": variant,
+            "run_id": run_id, "label": label, "model": model, "temperature": temperature,
+            "effort": effort, "prompt_variant": variant,
             "codegen_pass_rate": (pass_count / len(codegen_rows)) if codegen_rows else None,
             "avg_judge_score": avg_judge_score,
             "subject_cost_usd": subject_cost,
@@ -65,11 +69,15 @@ def _write_html(results, html_path: str) -> None:
         pass_rate = f"{s['codegen_pass_rate']*100:.0f}%" if s["codegen_pass_rate"] is not None else "-"
         judge_score = f"{s['avg_judge_score']:.1f}/10" if s["avg_judge_score"] is not None else "-"
         avg_latency = f"{s['avg_latency_ms']:.0f}ms" if s["avg_latency_ms"] is not None else "-"
+        temperature = s["temperature"] if s["temperature"] is not None else "-"
+        effort = html.escape(s["effort"]) if s["effort"] is not None else "-"
         rows_html += (
             "<tr>"
+            f"<td>{html.escape(s['label'])}</td>"
             f"<td>{html.escape(s['model'])}</td>"
             f"<td>{html.escape(s['run_id'])}</td>"
-            f"<td>{s['temperature']}</td>"
+            f"<td>{temperature}</td>"
+            f"<td>{effort}</td>"
             f"<td>{html.escape(s['prompt_variant'])}</td>"
             f"<td>{pass_rate}</td>"
             f"<td>{judge_score}</td>"
@@ -82,7 +90,7 @@ def _write_html(results, html_path: str) -> None:
 
     points_js = ",".join(
         f"{{x: {s['total_cost_usd']:.6f}, y: {(s['codegen_pass_rate'] or 0) * 100:.2f}, "
-        f"label: {(s['model'] + ' ' + s['prompt_variant'])!r}}}"
+        f"label: {s['label']!r}}}"
         for s in summary
     )
 
@@ -103,7 +111,7 @@ def _write_html(results, html_path: str) -> None:
 <h1>LLM Eval Harness Report</h1>
 <table>
 <thead>
-<tr><th>Model</th><th>Run ID</th><th>Temp</th><th>Prompt Variant</th><th>Codegen Pass Rate</th>
+<tr><th>Label</th><th>Model</th><th>Run ID</th><th>Temp</th><th>Effort</th><th>Prompt Variant</th><th>Codegen Pass Rate</th>
 <th>Avg Judge Score</th><th>Subject Cost</th><th>Judge Cost</th><th>Total Cost</th><th>Avg Latency</th></tr>
 </thead>
 <tbody>
