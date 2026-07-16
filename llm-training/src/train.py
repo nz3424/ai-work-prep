@@ -1,3 +1,4 @@
+import argparse
 from dataclasses import dataclass
 
 import torch
@@ -72,22 +73,35 @@ def train_model(config: TrainConfig) -> TrainResult:
 
     losses = []
     val_losses = {}
-    for step in range(config.steps):
-        x, y = get_batch(train_data, config.context_length, config.batch_size, generator)
-        logits = model(x) # logits is (batch, context_length, vocab_size)
-        loss = F.cross_entropy(logits.view(-1,model_config.vocab_size), y.view(-1))
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        losses.append(loss.item())
-        if step % config.eval_interval == 0 or step == config.steps - 1:
-            model.eval()
-            with torch.no_grad():
-                val_x, val_y = get_batch(val_data, config.context_length, config.batch_size, generator)
-                val_logits = model(val_x)
-                val_loss = F.cross_entropy(val_logits.view(-1, model_config.vocab_size), val_y.view(-1))
-            model.train()
-            val_losses[step] = val_loss.item()
+    log_file = open(config.log_path, "w") if config.log_path else None
+    try:
+        for step in range(config.steps):
+            x, y = get_batch(train_data, config.context_length, config.batch_size, generator)
+            logits = model(x) # logits is (batch, context_length, vocab_size)
+            loss = F.cross_entropy(logits.view(-1,model_config.vocab_size), y.view(-1))
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            losses.append(loss.item())
+            line = f"step {step} train_loss {loss.item():.4f}"
+
+            if step % config.eval_interval == 0 or step == config.steps - 1:
+                model.eval()
+                with torch.no_grad():
+                    val_x, val_y = get_batch(val_data, config.context_length, config.batch_size, generator)
+                    val_logits = model(val_x)
+                    val_loss = F.cross_entropy(val_logits.view(-1, model_config.vocab_size), val_y.view(-1))
+                model.train()
+                val_losses[step] = val_loss.item()
+                line += f" val_loss {val_loss.item():.4f}"
+
+            print(line)
+            if log_file:
+                log_file.write(line + "\n")
+    finally:
+        if log_file:
+            log_file.close()
+
     Path(config.checkpoint_path).parent.mkdir(parents=True, exist_ok=True)
     torch.save(
         {"model_state_dict": model.state_dict(), "model_config": model_config.__dict__},config.checkpoint_path,
@@ -98,3 +112,34 @@ def train_model(config: TrainConfig) -> TrainResult:
         checkpoint_path=config.checkpoint_path,
         tokenizer_path=config.tokenizer_path,
     )
+
+
+def _parse_args() -> TrainConfig:
+    parser = argparse.ArgumentParser(description="Train the from-scratch transformer on a text corpus.")
+    parser.add_argument("--data-path", default="data/tinyshakespeare.txt")
+    parser.add_argument("--checkpoint-path", default="checkpoints/model.pt")
+    parser.add_argument("--tokenizer-path", default="checkpoints/tokenizer.json")
+    parser.add_argument("--steps", type=int, default=200)
+    parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument("--context-length", type=int, default=256)
+    parser.add_argument("--lr", type=float, default=3e-4)
+    parser.add_argument("--num-merges", type=int, default=500)
+    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--log-path", default=None)
+    args = parser.parse_args()
+    return TrainConfig(
+        data_path=args.data_path,
+        checkpoint_path=args.checkpoint_path,
+        tokenizer_path=args.tokenizer_path,
+        steps=args.steps,
+        batch_size=args.batch_size,
+        context_length=args.context_length,
+        lr=args.lr,
+        num_merges=args.num_merges,
+        seed=args.seed,
+        log_path=args.log_path,
+    )
+
+
+if __name__ == "__main__":
+    train_model(_parse_args())
