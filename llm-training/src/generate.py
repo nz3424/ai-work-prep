@@ -1,3 +1,4 @@
+import argparse
 
 from src.tokenizer import BPETokenizer
 from src.transformer import ModelConfig, TinyTransformer
@@ -33,5 +34,26 @@ def generate(model: TinyTransformer, tokenizer: BPETokenizer, prompt: str,
             probs = torch.softmax(logits, dim=-1)  
             next_token = torch.multinomial(probs, num_samples=1)  
             encoded_prompt = torch.cat([encoded_prompt, next_token], dim=1) 
-    generated_ids = encoded_prompt.squeeze(0).tolist()  
+    generated_ids = encoded_prompt.squeeze(0).tolist()
     return tokenizer.decode(generated_ids)
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Sample text from a trained checkpoint.")
+    parser.add_argument("--checkpoint-path", default="checkpoints/model.pt")
+    parser.add_argument("--tokenizer-path", default="checkpoints/tokenizer.json")
+    parser.add_argument("--prompt", default="\n")
+    parser.add_argument("--max-new-tokens", type=int, default=200)
+    parser.add_argument("--temperature", type=float, default=1.0)
+    parser.add_argument("--top-k", type=int, default=None)
+    parser.add_argument("--seed", type=int, default=None)
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    args = _parse_args()
+    model, tokenizer = load_checkpoint(args.checkpoint_path, args.tokenizer_path)
+    print(generate(
+        model, tokenizer, args.prompt, args.max_new_tokens,
+        temperature=args.temperature, top_k=args.top_k, seed=args.seed,
+    ))
