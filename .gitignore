@@ -55,3 +55,9 @@ llm-training/checkpoints/
 # design spec requires to be committed as part of each run's reproducibility
 # record.
 !llm-training/experiments/**/training.log
+
+# The blanket "*token*" rule above (Secrets & credentials section) also
+# matches the tokenizer source/tests by substring — "tokenizer" contains
+# "token" — silently swallowing legitimate source files with no error.
+!llm-training/src/tokenizer.py
+!llm-training/tests/test_tokenizer.py
