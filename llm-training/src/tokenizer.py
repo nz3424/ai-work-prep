@@ -66,8 +66,10 @@ class BPETokenizer:
             if id < 256:
                 output.append(bytes([id]))
             else:
+                if id not in self.vocab:
+                    raise ValueError(f"token id {id} not in vocab (vocab_size={self.vocab_size})")
                 output.append(self.vocab[id])
-        return b"".join(output).decode("utf-8")
+        return b"".join(output).decode("utf-8", errors="replace")
 
     def save(self, path: str) -> None: 
         data = {
@@ -83,7 +85,7 @@ class BPETokenizer:
             data = json.load(f)
         tokenizer = cls(num_merges=data["num_merges"])
         tokenizer.merges = {tuple(pair): new_id for pair, new_id in data["merges"]}
-        for pair, new_id in tokenizer.merges.items():
+        for pair, new_id in data["merges"]:
             first, second = pair
             first_bytes = tokenizer.vocab[first] if first >= 256 else bytes([first])
             second_bytes = tokenizer.vocab[second] if second >= 256 else bytes([second])

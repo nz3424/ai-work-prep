@@ -50,6 +50,16 @@ def test_roundtrip_edge_cases():
         assert tokenizer.decode(tokenizer.encode(text)) == text
 
 
+def test_decode_replaces_invalid_utf8_instead_of_raising():
+    tokenizer = BPETokenizer(num_merges=0)
+    # 0x80 is a UTF-8 continuation byte and is never valid as the start of a
+    # sequence on its own — this simulates what generate.py's autoregressive
+    # sampling could produce, since nothing constrains a sampled id sequence
+    # to be valid UTF-8 the way encode()'s output always is.
+    result = tokenizer.decode([104, 128, 105])  # "h" + invalid byte + "i"
+    assert result == "h�i"
+
+
 def test_save_and_load_roundtrip(tmp_path):
     tokenizer = BPETokenizer(num_merges=30)
     tokenizer.train("the quick brown fox jumps over the lazy dog " * 20)
