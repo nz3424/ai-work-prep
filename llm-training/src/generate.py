@@ -16,8 +16,6 @@ def load_checkpoint(checkpoint_path: str, tokenizer_path: str) -> tuple[TinyTran
 def generate(model: TinyTransformer, tokenizer: BPETokenizer, prompt: str,
              max_new_tokens: int, temperature: float = 1.0, top_k: int | None = None, seed: int | None = None) -> str:
     
-    
-
     if seed is not None:
             torch.manual_seed(seed)
 
