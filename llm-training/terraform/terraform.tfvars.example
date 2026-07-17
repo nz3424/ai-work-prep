@@ -1,3 +1,6 @@
 aws_region   = "us-east-1"
 project_name = "llm-training-fleet"
 my_ip_cidr   = "1.2.3.4/32" # run: curl -s https://checkip.amazonaws.com — update every session
+
+# instance_type = "t3.small" # uncomment if this account's Free Tier restriction
+                              # rejects the t3.medium default (see terraform/README.md)

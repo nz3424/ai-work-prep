@@ -46,3 +46,18 @@ llm-training/terraform/*.tfvars
 
 # --- Claude Code worktrees ---
 .claude/worktrees/
+
+# --- llm-training (Track 3): model weights are large/binary, never commit ---
+llm-training/checkpoints/
+
+# The blanket "*.log" rule above (added for docker-101/aws-deploy-demo) would
+# otherwise silently swallow experiments/*/training.log, which the core
+# design spec requires to be committed as part of each run's reproducibility
+# record.
+!llm-training/experiments/**/training.log
+
+# The blanket "*token*" rule above (Secrets & credentials section) also
+# matches the tokenizer source/tests by substring — "tokenizer" contains
+# "token" — silently swallowing legitimate source files with no error.
+!llm-training/src/tokenizer.py
+!llm-training/tests/test_tokenizer.py
