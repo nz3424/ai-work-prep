@@ -13,6 +13,13 @@ resource "aws_instance" "fleet" {
   key_name                    = aws_key_pair.fleet.key_name
   associate_public_ip_address = true
 
+  # Without this, changing `user_data` only updates the attribute in place
+  # (while stopped) and restarts the same instance — cloud-init then skips
+  # re-running the boot script entirely, since it caches "already ran
+  # user-data" per instance-id, and the instance-id never changed. This
+  # forces a genuine destroy+recreate so a new instance-id gets a first boot.
+  user_data_replace_on_change = true
+
   # Explicit rather than trusting the AL2023 AMI's default (~8GB) — enough
   # headroom for Python packages (torch, etc., installed later by
   # run_fleet.sh) plus checkpoints/logs, without over-provisioning like the
