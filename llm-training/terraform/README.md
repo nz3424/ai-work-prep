@@ -95,6 +95,49 @@ plain SSH host (VS Code Remote-SSH, `scp`, `rsync`) without going through
 `fleet_ssh.sh`. The wrapper script remains the primary entry point since
 it also checks the instance is actually running first.
 
+## (Optional) Claude Code on the fleet
+
+The instance also has Node.js + the Claude Code CLI installed via `user_data`
+(same boot-time provisioning as git/tmux/python3.11), so you can run long
+Claude Code sessions inside the same detach-and-walk-away tmux pattern used
+for training runs. This needs a one-time setup separate from the training
+fleet's read-only deploy key, since Claude Code needs to be able to push:
+
+1. Generate a second, write-capable deploy key (kept local, gitignored, never
+   baked into `user_data` — see the note in `templates/user_data.sh.tpl` on
+   why more sensitive secrets stay off that path):
+   ```bash
+   cd llm-training/terraform
+   ssh-keygen -t ed25519 -f files/claude_deploy_key -N ""
+   ```
+2. Add the **public** half (`files/claude_deploy_key.pub`) to GitHub →
+   `nz3424/ai-work-prep` → Settings → Deploy keys → Add deploy key, this time
+   **with "Allow write access" checked**.
+3. Run `../fleet/fleet_claude_setup.sh` — copies the private key onto the
+   instance, adds a `github-write` SSH host alias, and points the repo's
+   push URL (only push — pull still uses the original read-only key) at that
+   alias.
+4. Run `claude setup-token` yourself, wherever you're logged into your
+   Claude subscription (this generates a long-lived token for non-interactive
+   use, billed against your subscription rather than separate API credits —
+   not something that can be scripted from the fleet side). SSH into the
+   instance and add the result to `~/.bashrc`:
+   ```bash
+   echo 'export CLAUDE_CODE_OAUTH_TOKEN=<token>' >> ~/.bashrc
+   ```
+
+After that: `fleet_ssh.sh`, `tmux new -s work`, `claude`, `Ctrl-b d` to
+detach — same survives-disconnect pattern as a training run, just running
+Claude Code instead of `run_fleet.sh`. `git push` from inside that session
+uses the write-capable key automatically (via the `github-write` alias);
+`git pull` still only ever pulls what's actually been pushed to GitHub, same
+as the training workflow.
+
+Note: `user_data` only runs at first boot, so if the instance is ever
+destroyed and recreated (e.g. `terraform apply` after changing `user_data`),
+you'll need to re-run `fleet_claude_setup.sh` — the write key and token live
+on the instance's disk, not in Terraform state.
+
 ## Everyday workflow
 
 See the design spec's Workflow section

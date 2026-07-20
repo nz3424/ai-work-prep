@@ -28,6 +28,10 @@ comfortable with modern AI-assisted, end-to-end building.
   weights — whose matmul reduces to integer addition, no multiplication —
   to make photonics the primary compute substrate instead of GPUs
 - See `llm-training/README.md` for the working plan
+- Study companion: `../quantm-learning/` (added 2026-07-16) — a standalone,
+  theory-only track (transformers, activations/norms, quantization,
+  QAT+STE, BitNet/ternary, photonics context) covering the concepts this
+  track builds on. No code; read it before/alongside the Core tasks above.
 
 **Track 2 — Personal AI assistant (Hermes Agent by Nous Research):**
 - Learning how to use Hermes and why its architecture (learning loop, persistent

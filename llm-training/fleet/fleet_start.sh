@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export AWS_PROFILE=headless-agents
 cd "$(dirname "$0")/../terraform"
 
 INSTANCE_ID=$(terraform output -raw instance_id)

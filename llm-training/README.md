@@ -20,6 +20,11 @@ exact target architecture.
 
 ## Reference material
 
+- `../../quantm-learning/` — a separate, standalone study track (theory
+  only, no code) covering transformers, activations/normalization,
+  quantization fundamentals, QAT+STE, and BitNet/ternary specifics in
+  depth. Read through it before/alongside the Core tasks below — it's the
+  "why" behind what you're about to build here.
 - `docs/bitnet-b1.58-2402.17764.pdf` — Ma et al. (Microsoft Research / UCAS),
   "The Era of 1-bit LLMs: All Large Language Models are in 1.58 Bits"
   (arXiv:2402.17764). Introduces BitNet b1.58: every weight is ternary
