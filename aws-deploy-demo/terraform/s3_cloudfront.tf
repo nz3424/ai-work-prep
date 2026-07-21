@@ -59,7 +59,11 @@ resource "aws_cloudfront_distribution" "client" {
   }
 
   origin {
-    domain_name = aws_lb.main.dns_name
+    # Hardcoded (not aws_lb.main.dns_name) so this distribution can be left
+    # standing while the ALB/ECS side is torn down independently to cut
+    # costs during a pause. /api/* will 502 until the ALB comes back; when
+    # it does, revert to aws_lb.main.dns_name and re-apply.
+    domain_name = "anagrams-alb-903958801.us-east-1.elb.amazonaws.com"
     origin_id   = "alb-api"
 
     custom_origin_config {
