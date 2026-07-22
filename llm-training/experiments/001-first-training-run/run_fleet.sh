@@ -16,7 +16,9 @@ NUM_MERGES=750
 SEED=0
 
 echo "Installing Python dependencies..."
-python3.11 -m pip install --user -r "$REPO_ROOT/llm-training/requirements.txt"
+# Shared installer: CPU-only torch to avoid the GPU-wheel disk overflow. See
+# fleet/install_deps.sh for the full rationale.
+"$REPO_ROOT/llm-training/fleet/install_deps.sh"
 
 echo "Archiving source snapshot..."
 rm -rf source_archive

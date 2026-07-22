@@ -73,5 +73,16 @@ training loop, ternary quantization) have been started yet.
 
 ## Notes
 
+### Fleet experiments
+
+- **Every experiment's `run_fleet.sh` must install deps via
+  `fleet/install_deps.sh`**, never a bare `pip install -r requirements.txt`.
+  The fleet box is GPU-less; default-PyPI `torch` pulls the CUDA build plus
+  huge `nvidia-*-cu*` wheels that overflow the small disk/tmpfs
+  (`[Errno 28] No space left on device`). The shared script installs the
+  CPU-only wheel and keeps the fix in one place so it can't drift between
+  experiments (it did, between 001 and 002). When creating a new experiment,
+  copy an existing `run_fleet.sh` so you inherit the shared-installer call.
+
 (Log training-run results, gotchas, and quantization-accuracy tradeoffs here
 as you go.)
