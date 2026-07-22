@@ -21,6 +21,12 @@ NUM_MERGES=750
 SEED=0
 
 echo "Installing Python dependencies..."
+# This is a GPU-less box. Default-PyPI `torch` pulls the CUDA build plus
+# multi-hundred-MB nvidia-*-cu* / triton / cublas wheels that overflow the
+# small disk/tmpfs ([Errno 28] No space left on device). Install the CPU-only
+# wheel first from the dedicated index; the -r step then sees torch already
+# satisfied and only adds the remaining deps. (See experiment 001 results.md.)
+python3.11 -m pip install --user --index-url https://download.pytorch.org/whl/cpu torch
 python3.11 -m pip install --user -r "$REPO_ROOT/llm-training/requirements.txt"
 
 echo "Archiving source snapshot..."
