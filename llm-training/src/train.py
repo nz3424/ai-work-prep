@@ -1,4 +1,5 @@
 import argparse
+import time
 from dataclasses import dataclass
 
 import torch
@@ -32,6 +33,9 @@ class TrainResult:
     val_losses: dict[int, float]
     checkpoint_path: str
     tokenizer_path: str
+    tokenizer_seconds: float = 0.0
+    training_seconds: float = 0.0
+    total_seconds: float = 0.0
 
 def get_batch(data: torch.Tensor, context_length: int, batch_size: int, generator: torch.Generator) -> tuple[torch.Tensor, torch.Tensor]:
     seq_len = data.size(0)
@@ -45,36 +49,52 @@ def train_model(config: TrainConfig) -> TrainResult:
     torch.manual_seed(config.seed)
     generator = torch.Generator().manual_seed(config.seed)
 
-    corpus_text = Path(config.data_path).read_text()
-
-    tokenizer = BPETokenizer(num_merges=config.num_merges)
     Path(config.tokenizer_path).parent.mkdir(parents=True, exist_ok=True)
-    tokenizer.train(corpus_text)
-    tokenizer.save(config.tokenizer_path)
-
-    encoded_data = torch.tensor(tokenizer.encode(corpus_text), dtype=torch.long)
-    val_size = int(len(encoded_data) * config.val_fraction)
-    train_data = encoded_data[:-val_size]
-    val_data = encoded_data[-val_size:]
-
-    assert len(train_data) > config.context_length, "train split shorter than context_length"
-    assert len(val_data) > config.context_length, "val split shorter than context_length"
-
-    model_config = ModelConfig(
-        vocab_size=tokenizer.vocab_size,
-        context_length=config.context_length,
-        d_model=config.d_model,
-        n_layers=config.n_layers,
-        n_heads=config.n_heads,
-        d_ff=config.d_ff,
-    )
-    model = TinyTransformer(model_config)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=config.lr)
-
-    losses = []
-    val_losses = {}
     log_file = open(config.log_path, "w") if config.log_path else None
+
+    def emit(line: str) -> None:
+        # Print and (if logging) append+flush, so `tail -f` on the log shows
+        # live step/timing progress during a long unattended fleet run.
+        print(line)
+        if log_file:
+            log_file.write(line + "\n")
+            log_file.flush()
+
     try:
+        run_start = time.perf_counter()
+        corpus_text = Path(config.data_path).read_text()
+
+        # Time the tokenizer build separately — its naive per-merge corpus
+        # rescan is usually the slowest single phase of a run.
+        tokenizer = BPETokenizer(num_merges=config.num_merges)
+        tokenizer_start = time.perf_counter()
+        tokenizer.train(corpus_text)
+        tokenizer_seconds = time.perf_counter() - tokenizer_start
+        tokenizer.save(config.tokenizer_path)
+        emit(f"timing tokenizer_build_seconds {tokenizer_seconds:.2f}")
+
+        encoded_data = torch.tensor(tokenizer.encode(corpus_text), dtype=torch.long)
+        val_size = int(len(encoded_data) * config.val_fraction)
+        train_data = encoded_data[:-val_size]
+        val_data = encoded_data[-val_size:]
+
+        assert len(train_data) > config.context_length, "train split shorter than context_length"
+        assert len(val_data) > config.context_length, "val split shorter than context_length"
+
+        model_config = ModelConfig(
+            vocab_size=tokenizer.vocab_size,
+            context_length=config.context_length,
+            d_model=config.d_model,
+            n_layers=config.n_layers,
+            n_heads=config.n_heads,
+            d_ff=config.d_ff,
+        )
+        model = TinyTransformer(model_config)
+        optimizer = torch.optim.AdamW(model.parameters(), lr=config.lr)
+
+        losses = []
+        val_losses = {}
+        training_start = time.perf_counter()
         for step in range(config.steps):
             x, y = get_batch(train_data, config.context_length, config.batch_size, generator)
             logits = model(x) # logits is (batch, context_length, vocab_size)
@@ -95,9 +115,14 @@ def train_model(config: TrainConfig) -> TrainResult:
                 val_losses[step] = val_loss.item()
                 line += f" val_loss {val_loss.item():.4f}"
 
-            print(line)
-            if log_file:
-                log_file.write(line + "\n")
+            emit(line)
+
+        training_seconds = time.perf_counter() - training_start
+        total_seconds = time.perf_counter() - run_start
+        steps_per_second = config.steps / training_seconds if training_seconds > 0 else 0.0
+        emit(f"timing training_seconds {training_seconds:.2f}")
+        emit(f"timing steps_per_second {steps_per_second:.2f}")
+        emit(f"timing total_seconds {total_seconds:.2f}")
     finally:
         if log_file:
             log_file.close()
@@ -111,6 +136,9 @@ def train_model(config: TrainConfig) -> TrainResult:
         val_losses=val_losses,
         checkpoint_path=config.checkpoint_path,
         tokenizer_path=config.tokenizer_path,
+        tokenizer_seconds=tokenizer_seconds,
+        training_seconds=training_seconds,
+        total_seconds=total_seconds,
     )
 
 
