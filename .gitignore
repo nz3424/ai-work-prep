@@ -61,3 +61,13 @@ llm-training/checkpoints/
 # "token" — silently swallowing legitimate source files with no error.
 !llm-training/src/tokenizer.py
 !llm-training/tests/test_tokenizer.py
+
+# Same "*token*" over-match hits experiment directories and source archives
+# whose names contain "tokenizer" (an "incremental-tokenizer" experiment dir,
+# its bench_tokenizer.* tooling, source_archive/tokenizer.py). Those are
+# source / reproducibility records, not secrets — re-include them. The
+# directory itself must be un-ignored (first line) before files inside it can
+# be. Trained tokenizer.json artifacts stay ignored via the separate
+# llm-training/checkpoints/ rule, so this does not commit model artifacts.
+!llm-training/experiments/**/*tokenizer*/
+!llm-training/experiments/**/*tokenizer*
