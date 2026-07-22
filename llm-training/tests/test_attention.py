@@ -1,9 +1,6 @@
-import math
-
 import torch
-import torch.nn.functional as F
 
-from src.attention import CausalSelfAttention
+from src.attention import CausalSelfAttention, _apply_rope, _rope_cos_sin, _rotate_half
 
 
 def test_output_shape_matches_input():
@@ -32,30 +29,59 @@ def test_causal_masking_blocks_future_tokens():
     assert torch.allclose(out1[0, 1], out2[0, 1], atol=1e-6)
 
 
-def test_matches_manual_computation_with_identity_projections():
-    d_model = 4
-    attn = CausalSelfAttention(d_model=d_model, n_heads=1)
-    with torch.no_grad():
-        for proj in (attn.q_proj, attn.k_proj, attn.v_proj, attn.out_proj):
-            proj.weight.copy_(torch.eye(d_model))
-            proj.bias.zero_()
+def test_rope_position_zero_is_identity():
+    # At position 0 the rotation angle is 0 (cos=1, sin=0), so RoPE must leave
+    # the vector untouched.
+    attn = CausalSelfAttention(d_model=16, n_heads=2)
+    torch.manual_seed(0)
+    x = torch.randn(1, attn.d_head)  # a single token's head vector
 
-    x = torch.tensor([[
-        [1.0, 0.0, 0.0, 0.0],
-        [0.0, 1.0, 0.0, 0.0],
-        [0.0, 0.0, 1.0, 0.0],
-    ]])  # (1, 3, 4)
+    cos, sin = _rope_cos_sin(torch.tensor([0.0]), attn.frequencies)
+    rotated = _apply_rope(x, cos, sin)
 
-    out = attn(x)
+    assert torch.allclose(rotated, x, atol=1e-6)
 
-    # With identity Q/K/V/out projections, scores = x @ x.T / sqrt(d_model).
-    scores = x[0] @ x[0].T / math.sqrt(d_model)
-    causal_mask = torch.triu(torch.ones(3, 3, dtype=torch.bool), diagonal=1)
-    scores = scores.masked_fill(causal_mask, float("-inf"))
-    expected_weights = F.softmax(scores, dim=-1)
-    expected_out = (expected_weights @ x[0]).unsqueeze(0)
 
-    assert torch.allclose(out, expected_out, atol=1e-6)
+def test_rope_score_depends_only_on_relative_position():
+    # The defining property of RoPE: the dot product between a query rotated at
+    # position m and a key rotated at position n depends only on (m - n). So
+    # shifting both positions by the same delta must leave the score unchanged.
+    attn = CausalSelfAttention(d_model=16, n_heads=2)
+    freq = attn.frequencies
+
+    torch.manual_seed(0)
+    q = torch.randn(1, attn.d_head)
+    k = torch.randn(1, attn.d_head)
+
+    def score(m, n):
+        cos_m, sin_m = _rope_cos_sin(torch.tensor([float(m)]), freq)
+        cos_n, sin_n = _rope_cos_sin(torch.tensor([float(n)]), freq)
+        q_rot = _apply_rope(q, cos_m, sin_m)
+        k_rot = _apply_rope(k, cos_n, sin_n)
+        return (q_rot * k_rot).sum()
+
+    for m, n, delta in [(0, 0, 5), (3, 1, 4), (7, 2, 10)]:
+        assert torch.allclose(score(m, n), score(m + delta, n + delta), atol=1e-5)
+
+
+def test_rope_preserves_norm():
+    # Rotation is orthogonal, so it cannot change a vector's length regardless
+    # of position.
+    attn = CausalSelfAttention(d_model=16, n_heads=2)
+    torch.manual_seed(0)
+    x = torch.randn(1, attn.d_head)
+    original_norm = x.norm(dim=-1)
+
+    for m in [0, 1, 7, 42, 500]:
+        cos, sin = _rope_cos_sin(torch.tensor([float(m)]), attn.frequencies)
+        rotated = _apply_rope(x, cos, sin)
+        assert torch.allclose(rotated.norm(dim=-1), original_norm, atol=1e-5)
+
+
+def test_rotate_half():
+    # Half-split convention: [a, b, c, d] -> [-c, -d, a, b].
+    out = _rotate_half(torch.tensor([1.0, 2.0, 3.0, 4.0]))
+    assert torch.equal(out, torch.tensor([-3.0, -4.0, 1.0, 2.0]))
 
 
 def test_gradients_flow_through_all_projections():
@@ -108,3 +134,25 @@ def test_output_correct_after_mask_cache_grows_then_shrinks():
 
     assert torch.allclose(out1[0, 0], out2[0, 0], atol=1e-6)
     assert torch.allclose(out1[0, 1], out2[0, 1], atol=1e-6)
+
+
+def test_rope_cache_slice_matches_fresh_build():
+    # The RoPE cos/sin cache grows to the largest seq_len seen and slices down
+    # for smaller calls. A shorter forward after a longer one must produce the
+    # exact same output as one whose cache was built fresh at that length —
+    # i.e. the [:seq_len] slice returns correct values, not just a valid shape.
+    cold = CausalSelfAttention(d_model=8, n_heads=2)
+    cold.eval()
+    warm = CausalSelfAttention(d_model=8, n_heads=2)
+    warm.eval()
+    warm.load_state_dict(cold.state_dict())
+
+    torch.manual_seed(0)
+    x = torch.randn(1, 3, 8)
+
+    out_cold = cold(x)              # cache built fresh at seq_len 3
+    warm(torch.randn(1, 6, 8))      # grow warm's cache to seq_len 6 first
+    out_warm = warm(x)             # then seq_len 3 must slice the cache
+
+    assert warm.cos_cached.size(0) == 6  # cache grew and was not rebuilt smaller
+    assert torch.allclose(out_cold, out_warm, atol=1e-6)

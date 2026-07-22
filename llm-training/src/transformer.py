@@ -36,7 +36,7 @@ class TinyTransformer(nn.Module):
         super().__init__()
         self.config = config
         self.token_embedding = nn.Embedding(config.vocab_size, config.d_model)
-        self.position_embedding = nn.Embedding(config.context_length, config.d_model)
+
         self.blocks = nn.ModuleList([TransformerBlock(config) for _ in range(config.n_layers)])
         self.ln = nn.LayerNorm(config.d_model)
         #* check if we should have bias
@@ -47,8 +47,8 @@ class TinyTransformer(nn.Module):
         _, seq_len = idx.size()
         assert seq_len <= self.config.context_length, f"sequence length {seq_len} exceeds context_length {self.config.context_length}"
         token_embeddings = self.token_embedding(idx)
-        position_embeddings = self.position_embedding(torch.arange(seq_len, device=idx.device))
-        x = token_embeddings + position_embeddings
+
+        x = token_embeddings
         for block in self.blocks:
             x = block(x)
         x = self.ln(x)
