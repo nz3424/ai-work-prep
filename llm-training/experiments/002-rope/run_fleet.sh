@@ -8,6 +8,11 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 # update this if the fleet's S3 bucket is ever destroyed and recreated.
 CHECKPOINT_BUCKET="llm-training-fleet-checkpoints-10e3d44d"
 
+EXPERIMENT_ID="002-rope"
+
+# Hyperparameters are intentionally IDENTICAL to 001-first-training-run so that
+# any difference in the result is attributable to RoPE (code change on the
+# rope-positional-embeddings branch) and nothing else. Do not tune these.
 STEPS=3000
 BATCH_SIZE=32
 CONTEXT_LENGTH=256
@@ -25,6 +30,8 @@ rm -rf source_archive
 cp -r "$REPO_ROOT/llm-training/src" source_archive
 
 cat > training_config.txt <<CONFIG
+experiment=$EXPERIMENT_ID
+positional_encoding=rope
 steps=$STEPS
 batch_size=$BATCH_SIZE
 context_length=$CONTEXT_LENGTH
@@ -43,8 +50,8 @@ echo "Starting training run..."
   cd "$REPO_ROOT/llm-training"
   python3.11 -m src.train \
     --data-path data/tinyshakespeare.txt \
-    --checkpoint-path checkpoints/001-first-training-run/model.pt \
-    --tokenizer-path checkpoints/001-first-training-run/tokenizer.json \
+    --checkpoint-path "checkpoints/$EXPERIMENT_ID/model.pt" \
+    --tokenizer-path "checkpoints/$EXPERIMENT_ID/tokenizer.json" \
     --steps "$STEPS" \
     --batch-size "$BATCH_SIZE" \
     --context-length "$CONTEXT_LENGTH" \
@@ -55,11 +62,11 @@ echo "Starting training run..."
 )
 
 echo "Archiving checkpoint + log to S3..."
-aws s3 cp "$REPO_ROOT/llm-training/checkpoints/001-first-training-run/model.pt" \
-  "s3://$CHECKPOINT_BUCKET/001-first-training-run/model.pt"
-aws s3 cp "$REPO_ROOT/llm-training/checkpoints/001-first-training-run/tokenizer.json" \
-  "s3://$CHECKPOINT_BUCKET/001-first-training-run/tokenizer.json"
-aws s3 cp training.log "s3://$CHECKPOINT_BUCKET/001-first-training-run/training.log"
+aws s3 cp "$REPO_ROOT/llm-training/checkpoints/$EXPERIMENT_ID/model.pt" \
+  "s3://$CHECKPOINT_BUCKET/$EXPERIMENT_ID/model.pt"
+aws s3 cp "$REPO_ROOT/llm-training/checkpoints/$EXPERIMENT_ID/tokenizer.json" \
+  "s3://$CHECKPOINT_BUCKET/$EXPERIMENT_ID/tokenizer.json"
+aws s3 cp training.log "s3://$CHECKPOINT_BUCKET/$EXPERIMENT_ID/training.log"
 
 echo "Done. Next: sample with generate.py, write results.md, then:"
 echo "  git add source_archive training_config.txt training.log results.md"

@@ -94,3 +94,21 @@ def test_val_losses_recorded_at_eval_interval_steps(tmp_path):
     result = train_model(config)
 
     assert set(result.val_losses.keys()) == {0, 100, 200, 249}
+
+
+def test_timing_is_recorded(tmp_path):
+    # Every experiment should capture phase timing so future run-length
+    # estimates are grounded in measured data, not guesses.
+    log_path = tmp_path / "training.log"
+    result = train_model(_tiny_config(tmp_path, steps=20, log_path=str(log_path)))
+
+    assert result.tokenizer_seconds > 0
+    assert result.training_seconds > 0
+    # Total spans both phases (plus encode/setup), so it can't be smaller.
+    assert result.total_seconds >= result.training_seconds
+
+    # The durations are also persisted to the log for committed experiments.
+    log_text = log_path.read_text()
+    assert "timing tokenizer_build_seconds" in log_text
+    assert "timing training_seconds" in log_text
+    assert "timing total_seconds" in log_text
