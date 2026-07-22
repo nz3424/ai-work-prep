@@ -60,6 +60,36 @@ def test_decode_replaces_invalid_utf8_instead_of_raising():
     assert result == "h�i"
 
 
+def test_mergestate_init_matches_naive():
+    from src.merge_state import MergeState
+    from src.tokenizer import _get_pair_counts
+
+    for text in ["", "a", "aaaa", "abab", "the the the"]:
+        ids = list(text.encode())
+        state = MergeState(ids)
+        assert state.pair_counts == _get_pair_counts(ids)
+        assert state.live_ids() == ids
+
+
+def test_apply_merge_keeps_counts_consistent():
+    from src.merge_state import MergeState
+    from src.tokenizer import _get_pair_counts
+
+    for text in ["aaaa", "aaaaa", "abababab", "the theatre theme"]:
+        state = MergeState(list(text.encode()))
+        next_id = 256
+        for _ in range(5):
+            if not state.pair_counts:
+                break
+            pair = max(state.pair_counts, key=state.pair_counts.get)
+            state.apply_merge(pair, next_id)
+            next_id += 1
+            live = state.live_ids()
+            assert state.pair_counts == _get_pair_counts(live), (text, live)
+            assert all(len(state.pair_positions[p]) == c
+                       for p, c in state.pair_counts.items())
+
+
 def test_save_and_load_roundtrip(tmp_path):
     tokenizer = BPETokenizer(num_merges=30)
     tokenizer.train("the quick brown fox jumps over the lazy dog " * 20)
