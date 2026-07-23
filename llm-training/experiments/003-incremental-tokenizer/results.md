@@ -81,6 +81,46 @@ different learned merges, indistinguishable model quality. (Corollary: a
 retrained `tokenizer.json` is not byte-identical to 002's, as flagged in
 `src/merge_state.py`.)
 
+## Sample generation
+
+Prompt `"ROMEO:"`, `max_new_tokens=200`, `temperature=1.0`, no top_k,
+`seed=0`, from the final (step-2999) checkpoint — identical settings to 002:
+
+```
+ROMEO: glaconsul.
+
+EXTON:
+You reele?
+
+GLOUCESTER:
+
+KING EDWARD IV:
+If thou wilt him sorrow, and so not this.
+What! Exeter, let us feat, a jury
+Sfranging us to have, thou death,
+Will to proud the children of come been,
+Relor my raper.
+
+First Senator:
+Now, the Secuse you? think, fair gapnot.
+
+FRIAR LAURENCE:
+There lies when you armless lip and in two:
+Away alabous words and greater night.
+Pesdate she dagges.
+
+SICINIUS:
+Now, stays he laWed with it well
+Might their hear farform loveth? N
+```
+
+Qualitatively on par with 002: real Shakespeare character names (`EXTON`,
+`GLOUCESTER`, `KING EDWARD IV`, `First Senator`, `FRIAR LAURENCE`, `SICINIUS`),
+clean `CHARACTER:`-on-its-own-line play formatting, archaic flavor (`thou wilt`,
+`loveth`), and the expected garbled invented tokens (`glaconsul`, `Sfranging`,
+`gapnot`, `alabous`) at ~1M params. No qualitative drop from the different
+learned vocab — consistent with the loss parity above.
+
 ## Success criteria (from mission.md)
 
 - [x] Incremental materially faster than naive — 25.9× (163s → 6s)
@@ -88,9 +128,8 @@ retrained `tokenizer.json` is not byte-identical to 002's, as flagged in
       vs 3986s (0.14% of the run)
 - [x] Final `train_loss` within noise of 002 (2.62) — 2.65
 - [x] Best `val_loss` comparable to 002 (3.78) — 3.79, same step
-- [ ] Generation sample not drawn this pass — model arch is byte-identical to
-      002 and the loss matches, so output is expected equivalent; can be
-      sampled from the saved checkpoint if a qualitative check is wanted
+- [x] Generation quality comparable to 002 — real names, clean formatting, no
+      qualitative drop (sample above)
 
 ## Learnings / surprises
 
