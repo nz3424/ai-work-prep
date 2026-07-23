@@ -1,5 +1,4 @@
 import json
-from src.merge_state import MergeState
 
 def _get_pair_counts(ids: list[int]) -> dict[tuple[int, int], int]:
     counts: dict[tuple[int, int], int] = {}
@@ -33,12 +32,12 @@ class BPETokenizer:
 
     def train(self, text: str) -> None:
         ids = list(text.encode("utf-8"))
-        state = MergeState(ids)
         for _ in range(self.num_merges):
-            if not state.pair_counts:
+            frequencies = _get_pair_counts(ids)
+            if not frequencies:
                 break
-            most_frequent_pair = max(state.pair_counts, key=state.pair_counts.get)
-            if state.pair_counts[most_frequent_pair] < 2:
+            most_frequent_pair = max(frequencies, key=frequencies.get)
+            if frequencies[most_frequent_pair] < 2:
                 break
 
             new_id = 256 + len(self.merges)
@@ -48,7 +47,7 @@ class BPETokenizer:
 
             self.merges[most_frequent_pair] = new_id
             self.vocab[new_id] = first_bytes + second_bytes
-            state.apply_merge(most_frequent_pair, new_id)
+            ids = _merge_pair(ids, most_frequent_pair, new_id)
 
     def encode(self, text: str) -> list[int]:
         ids = list(text.encode("utf-8"))

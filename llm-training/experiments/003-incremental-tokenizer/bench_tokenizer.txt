@@ -1,0 +1,8 @@
+corpus:            tinyshakespeare.txt (1,115,394 chars)
+num_merges:        750
+naive_seconds:     162.96
+incremental_seconds: 6.29
+speedup:           25.9x
+naive_merge_count: 750
+incremental_merge_count: 750
+merges_identical:  False
