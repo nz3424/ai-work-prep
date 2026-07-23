@@ -1,0 +1,9 @@
+experiment=003-incremental-tokenizer
+positional_encoding=rope
+tokenizer=incremental
+steps=3000
+batch_size=32
+context_length=256
+lr=3e-4
+num_merges=750
+seed=0

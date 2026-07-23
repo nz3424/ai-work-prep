@@ -69,6 +69,13 @@ structure rather than character noise.
   rescan per merge, no incremental pair-count bookkeeping) was the
   slowest part of the run by a wide margin — noticeably slower than the
   3000 training steps that followed it.
+  - **Correction (experiment 003, 2026-07-22):** this was an un-instrumented
+    impression and it was wrong. Measured, the naive tokenizer build is ~163s
+    vs ~3987s for the 3000 training steps — ~4% of wall-clock, not the
+    bottleneck. The build hangs silently before any `step` line prints, which
+    likely made it *feel* slower than the visibly-progressing training. 003
+    still made it 25.9× faster (a real iteration/scaling win), but training
+    throughput — not tokenization — is where the run's time actually goes.
 - A plain `pip install torch` on the fleet instance pulled the CUDA-enabled
   build and its `nvidia-*-cu12` dependency wheels, which overflowed the
   box's small RAM-backed `/tmp` (`tmpfs`) even though the root volume had
