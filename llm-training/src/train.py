@@ -26,6 +26,8 @@ class TrainConfig:
     d_ff: int = 512
     val_fraction: float = 0.1
     eval_interval: int = 50
+    quantize_linears: bool = False
+    load_tokenizer_path: str | None = None
 
 @dataclass
 class TrainResult:
@@ -45,6 +47,7 @@ def get_batch(data: torch.Tensor, context_length: int, batch_size: int, generato
     x = data[idx]
     y = data[idx + 1]
     return x, y
+
 def train_model(config: TrainConfig) -> TrainResult:
     torch.manual_seed(config.seed)
     generator = torch.Generator().manual_seed(config.seed)
@@ -66,13 +69,17 @@ def train_model(config: TrainConfig) -> TrainResult:
 
         # Time the tokenizer build separately — its naive per-merge corpus
         # rescan is usually the slowest single phase of a run.
-        tokenizer = BPETokenizer(num_merges=config.num_merges)
-        tokenizer_start = time.perf_counter()
-        tokenizer.train(corpus_text)
-        tokenizer_seconds = time.perf_counter() - tokenizer_start
+        if config.load_tokenizer_path:
+            tokenizer = BPETokenizer.load(config.load_tokenizer_path)
+            emit(f"loaded tokenizer from {config.load_tokenizer_path}")
+            tokenizer_seconds = 0.0
+        else:
+            tokenizer = BPETokenizer(num_merges=config.num_merges)
+            tokenizer_start = time.perf_counter()
+            tokenizer.train(corpus_text)
+            tokenizer_seconds = time.perf_counter() - tokenizer_start
+            emit(f"timing tokenizer_build_seconds {tokenizer_seconds:.2f}")
         tokenizer.save(config.tokenizer_path)
-        emit(f"timing tokenizer_build_seconds {tokenizer_seconds:.2f}")
-
         encoded_data = torch.tensor(tokenizer.encode(corpus_text), dtype=torch.long)
         val_size = int(len(encoded_data) * config.val_fraction)
         train_data = encoded_data[:-val_size]
@@ -88,6 +95,7 @@ def train_model(config: TrainConfig) -> TrainResult:
             n_layers=config.n_layers,
             n_heads=config.n_heads,
             d_ff=config.d_ff,
+            quantize_linears=config.quantize_linears
         )
         model = TinyTransformer(model_config)
         optimizer = torch.optim.AdamW(model.parameters(), lr=config.lr)
@@ -154,6 +162,9 @@ def _parse_args() -> TrainConfig:
     parser.add_argument("--num-merges", type=int, default=500)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--log-path", default=None)
+    parser.add_argument("--quantize-linears", action="store_true", help="Quantize linear layers in the transformer body (not embedding or head).")
+    parser.add_argument("--load-tokenizer-path", default=None, help="Path to load an existing tokenizer from, instead of training a new one.")
+
     args = parser.parse_args()
     return TrainConfig(
         data_path=args.data_path,
@@ -166,6 +177,8 @@ def _parse_args() -> TrainConfig:
         num_merges=args.num_merges,
         seed=args.seed,
         log_path=args.log_path,
+        quantize_linears=args.quantize_linears,
+        load_tokenizer_path=args.load_tokenizer_path
     )
 
 
