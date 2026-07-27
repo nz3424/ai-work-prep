@@ -1,0 +1,59 @@
+==========================================================================
+1. WHERE THE WEIGHTS LAND: fraction assigned to each ternary code
+==========================================================================
+tensor / rule                              s      -1       0      +1   nonzero
+--------------------------------------------------------------------------
+W1 (ffn up-proj)   absmean            0.0521  36.7%  27.2%  36.0%    72.8%
+W1 (ffn up-proj)   absmax             0.2017   4.8%  90.4%   4.8%     9.6%
+q_proj             absmean            0.0665  35.4%  29.5%  35.2%    70.5%
+q_proj             absmax             0.2999   3.2%  93.7%   3.1%     6.3%
+
+  theory, Gaussian weights with std = sigma:
+    absmean:  s = sigma*sqrt(2/pi) = 0.798 sigma, threshold s/2 = 0.399 sigma
+              -> P(|w| > 0.399 sigma) = 69.0% nonzero
+    absmax:   s = max|W| ~ 4.2 sigma for n=65536, threshold s/2 = 2.1 sigma
+              -> P(|w| > 2.1 sigma)   = 3.6% nonzero
+
+==========================================================================
+2. OUTLIER ROBUSTNESS: inject one weight at 20x the current max
+==========================================================================
+rule           s before    s after  nonzero before  nonzero after
+-----------------------------------------------------------------
+absmean          0.0521     0.0521          72.8%         72.7%
+absmax           0.2017     4.0345           9.6%          0.0%
+
+==========================================================================
+3. MEMORY MATH
+==========================================================================
+
+toy model (d_model=128, vocab=1006)   total 1,043,968 params   body 75.3% of params
+  FP16 everything                  2.09 MB    1.00x
+  ternary 2-bit packed body        0.71 MB    2.93x
+  ternary ideal 1.58-bit           0.67 MB    3.11x
+  (embedding + head held in FP16: 0.52 MB, 72% of the packed model)
+
+LLaMA-7B shape (d_model=4096, vocab=32000)   total 6,738,149,376 params   body 96.1% of params
+  FP16 everything              13476.30 MB    1.00x
+  ternary 2-bit packed body     2143.29 MB    6.29x
+  ternary ideal 1.58-bit        1803.30 MB    7.47x
+  (embedding + head held in FP16: 524.29 MB, 24% of the packed model)
+
+==========================================================================
+4. PARKED UNIT 1 THREAD: do sparse FFN detector rows suffer more?
+==========================================================================
+
+per-row cosine similarity between original and ternarized rows:
+  attention.q_proj       cos sim 0.8977 +/- 0.0118   kurtosis  2.65   corr(kurt, cos) -0.786
+  attention.k_proj       cos sim 0.8975 +/- 0.0124   kurtosis  2.63   corr(kurt, cos) -0.801
+  attention.v_proj       cos sim 0.9035 +/- 0.0116   kurtosis  2.48   corr(kurt, cos) -0.850
+  attention.out_proj     cos sim 0.9047 +/- 0.0101   kurtosis  2.47   corr(kurt, cos) -0.764
+  ffn.0                  cos sim 0.9152 +/- 0.0091   kurtosis  2.22   corr(kurt, cos) -0.789
+  ffn.2                  cos sim 0.9015 +/- 0.0055   kurtosis  2.57   corr(kurt, cos) -0.822
+
+does ternarizing the FFN up-proj change which neurons fire?
+  top-8   firing neurons preserved:  58.7%   (chance = 1.6%)
+  top-16  firing neurons preserved:  63.0%   (chance = 3.1%)
+  top-32  firing neurons preserved:  68.6%   (chance = 6.2%)
+  top-64  firing neurons preserved:  73.8%   (chance = 12.5%)
+
+  correlation of all post-GELU activations, FP32 vs ternary W1: 0.8968

@@ -1,0 +1,27 @@
+model: d_model=128 n_layers=4 batch=16x256 tokens=4096
+
+tensor                  absmax   absmean   ratio  top-3 outlier dims (dim:absmax)
+---------------------------------------------------------------------------------
+embed (residual in)       4.43     0.785     5.6x   21:   4.43   98:   4.29  114:   4.21
+L0 attn out               1.80     0.118    15.2x    4:   1.80   37:   1.54   93:   1.32
+L0 residual out           3.66     0.623     5.9x  124:   3.66  126:   3.49  103:   3.49
+L1 attn out               1.67     0.181     9.2x  103:   1.67  126:   1.62   62:   1.58
+L1 residual out           3.73     0.522     7.1x   65:   3.73   43:   3.13  118:   3.08
+L2 attn out               1.95     0.231     8.5x   99:   1.95   93:   1.90   36:   1.70
+L2 residual out           3.80     0.499     7.6x   65:   3.80   43:   3.36   10:   3.30
+L3 attn out               2.02     0.261     7.7x   60:   2.02   69:   1.92  126:   1.82
+L3 residual out           3.58     0.554     6.5x   74:   3.58   19:   3.47   88:   3.46
+
+per-dimension absmax / median-dim absmax, residual stream only:
+  embed (residual in)  median-dim absmax=  3.21  dims >5x median: none
+  L0 residual out      median-dim absmax=  2.67  dims >5x median: none
+  L1 residual out      median-dim absmax=  2.31  dims >5x median: none
+  L2 residual out      median-dim absmax=  2.21  dims >5x median: none
+  L3 residual out      median-dim absmax=  2.59  dims >5x median: none
+
+static INT8 scale calibrated on 'embed (residual in)' (absmax=4.43):
+  embed (residual in)  absmax=   4.43  ->  uses only 100% of range
+  L0 residual out      absmax=   3.66  ->  uses only 83% of range
+  L1 residual out      absmax=   3.73  ->  uses only 84% of range
+  L2 residual out      absmax=   3.80  ->  uses only 86% of range
+  L3 residual out      absmax=   3.58  ->  uses only 81% of range
