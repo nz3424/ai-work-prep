@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 
 from src.attention import CausalSelfAttention
-
+from src.ternary_quant import make_linear
 @dataclass
 class ModelConfig:
     vocab_size: int
@@ -13,17 +13,18 @@ class ModelConfig:
     n_layers: int = 4
     n_heads: int = 4
     d_ff: int = 512
+    quantize_linears: bool = False
 
 class TransformerBlock(nn.Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
         self.ln1 = nn.LayerNorm(config.d_model)
-        self.attention = CausalSelfAttention(config.d_model, config.n_heads)
+        self.attention = CausalSelfAttention(config.d_model, config.n_heads, quantize_linears=config.quantize_linears)
         self.ln2 = nn.LayerNorm(config.d_model)
         self.ffn = nn.Sequential(
-            nn.Linear(config.d_model, config.d_ff),
+            make_linear(config.quantize_linears, config.d_model, config.d_ff),
             nn.GELU(),
-            nn.Linear(config.d_ff, config.d_model),
+            make_linear(config.quantize_linears, config.d_ff, config.d_model),
         )
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x is (batch, seq_len, d_model) in, same shape out

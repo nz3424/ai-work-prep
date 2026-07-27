@@ -36,3 +36,7 @@ class BitLinear(nn.Linear):
         if self.bias is not None:
             out = out + self.bias
         return out
+
+def make_linear(quantize: bool, in_features: int, out_features: int, bias: bool = True):
+    cls = BitLinear if quantize else nn.Linear
+    return cls(in_features, out_features, bias=bias)
