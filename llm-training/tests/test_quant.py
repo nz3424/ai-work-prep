@@ -1,6 +1,7 @@
 import torch
+import torch.nn.functional as F
 
-from src.ternary_quant import int8_absmax, ste_round, ternary_absmean
+from src.ternary_quant import BitLinear, int8_absmax, ste_round, ternary_absmean
 
 
 def test_ste_round_forward_is_round():
@@ -48,3 +49,27 @@ def test_int8_absmax_roundtrips_near_identity():
     assert codes.abs().max() <= 127
     approx = codes * scale
     assert (approx - w).abs().max() < scale  # error bounded by one step
+
+
+def test_bitlinear_forward_equals_scale_times_ternary_matmul():
+    torch.manual_seed(0)
+    layer = BitLinear(8, 4, bias=False)
+    x = torch.randn(3, 8)
+    codes, scale = ternary_absmean(layer.weight)
+    expected = scale * F.linear(x, codes)
+    assert torch.allclose(layer(x), expected, atol=1e-6)
+
+
+def test_bitlinear_gradient_flows_to_weight():
+    layer = BitLinear(8, 4, bias=False)
+    layer(torch.randn(3, 8)).sum().backward()
+    assert layer.weight.grad is not None and layer.weight.grad.abs().sum() > 0
+
+
+def test_bitlinear_int8_sanity_is_near_fp():
+    # STE harness correctness independent of ternary difficulty
+    torch.manual_seed(0)
+    layer = BitLinear(64, 64, bias=False, quant_fn=int8_absmax)
+    x = torch.randn(16, 64)
+    fp = F.linear(x, layer.weight)
+    assert (layer(x) - fp).abs().max() < 0.5 * layer.weight.abs().max()

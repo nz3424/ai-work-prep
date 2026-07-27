@@ -1,4 +1,6 @@
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 def ste_round(x: torch.Tensor) -> torch.Tensor:
     """
@@ -22,3 +24,15 @@ def int8_absmax(w: torch.Tensor, eps: float = 1e-5) -> tuple[torch.Tensor, torch
     s = w.abs().max()/127
     w_tilde = ste_round(w / (s + eps)).clamp(-127, 127)
     return w_tilde, s
+
+class BitLinear(nn.Linear):
+    def __init__(self, in_features, out_features, bias=True, quant_fn=ternary_absmean):
+        super().__init__(in_features, out_features, bias=bias)
+        self.quant_fn = quant_fn
+
+    def forward(self, x):
+        codes, scale = self.quant_fn(self.weight)
+        out = scale * F.linear(x, codes)
+        if self.bias is not None:
+            out = out + self.bias
+        return out
