@@ -1,6 +1,6 @@
 import torch
 
-from src.ternary_quant import ste_round, ternary_absmean
+from src.ternary_quant import int8_absmax, ste_round, ternary_absmean
 
 
 def test_ste_round_forward_is_round():
@@ -39,3 +39,12 @@ def test_ternary_absmean_zero_tensor_stays_finite():
     w_tilde, gamma = ternary_absmean(w)
     assert torch.isfinite(w_tilde).all()  # no NaN from 0/0
     assert torch.equal(w_tilde, torch.zeros_like(w))
+
+
+def test_int8_absmax_roundtrips_near_identity():
+    torch.manual_seed(0)
+    w = torch.randn(64, 64)
+    codes, scale = int8_absmax(w)
+    assert codes.abs().max() <= 127
+    approx = codes * scale
+    assert (approx - w).abs().max() < scale  # error bounded by one step

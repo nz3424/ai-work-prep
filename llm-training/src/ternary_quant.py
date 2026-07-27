@@ -14,6 +14,11 @@ def ternary_absmean(w: torch.Tensor, eps: float = 1e-5) -> tuple[torch.Tensor, t
     Returns (w_tilde, gamma): ternary matrix in {-1,0,+1} and the per-tensor scale.
     """
     gamma = w.abs().mean()
-    s = w / (gamma + eps)
-    w_tilde = ste_round(s).clamp(-1, 1)
+    w_tilde = ste_round(w / (gamma + eps)).clamp(-1, 1)
     return w_tilde, gamma
+
+def int8_absmax(w: torch.Tensor, eps: float = 1e-5) -> tuple[torch.Tensor, torch.Tensor]:
+    """INT8 per-tensor absmax fake-quant. Sanity path for the STE harness."""
+    s = w.abs().max()/127
+    w_tilde = ste_round(w / (s + eps)).clamp(-127, 127)
+    return w_tilde, s
