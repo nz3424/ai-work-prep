@@ -1,0 +1,10 @@
+experiment=007-qat-ternary
+baseline=002-rope
+quantization=ternary_absmean_qat_ste
+quantized_layers=body_only_head_and_embedding_held_out
+tokenizer=loaded_from_002-rope
+steps=3000
+batch_size=32
+context_length=256
+lr=3e-4
+seed=0
