@@ -66,6 +66,21 @@ def test_quantize_activations_persists_to_saved_model_config(tmp_path):
     assert reloaded.quantize_activations is True
 
 
+def test_grad_checkpoint_run_matches_plain_run(tmp_path):
+    # End-to-end proof of the OOM fix: gradient checkpointing must leave the
+    # loss trajectory bit-identical (same seed everywhere), so it's purely a
+    # memory optimization — 008's ppl stays comparable to 007's.
+    plain_dir = tmp_path / "plain"
+    ckpt_dir = tmp_path / "ckpt"
+    plain_dir.mkdir()
+    ckpt_dir.mkdir()
+
+    r_plain = train_model(_tiny_config(plain_dir, steps=30))
+    r_ckpt = train_model(_tiny_config(ckpt_dir, steps=30, grad_checkpoint=True))
+
+    assert r_plain.losses == r_ckpt.losses
+
+
 def test_get_batch_shapes_and_next_token_shift():
     # data[i] == i, so for any valid window y must equal x + 1 elementwise —
     # this pins the shape *and* the "y is x shifted one position later"

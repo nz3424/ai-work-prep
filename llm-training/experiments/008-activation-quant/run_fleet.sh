@@ -43,6 +43,7 @@ experiment=$EXPERIMENT_ID
 baseline=007-qat-ternary
 quantization=ternary_absmean_qat_ste_weights + int8_pertoken_absmax_activations
 quantized_layers=body_only_head_and_embedding_held_out
+memory=grad_checkpoint_blocks
 tokenizer=loaded_from_${BASELINE_ID}
 steps=$STEPS
 batch_size=$BATCH_SIZE
@@ -62,6 +63,7 @@ echo "Starting training run..."
     --load-tokenizer-path "checkpoints/$BASELINE_ID/tokenizer.json" \
     --quantize-linears \
     --quantize-activations \
+    --grad-checkpoint \
     --steps "$STEPS" \
     --batch-size "$BATCH_SIZE" \
     --context-length "$CONTEXT_LENGTH" \

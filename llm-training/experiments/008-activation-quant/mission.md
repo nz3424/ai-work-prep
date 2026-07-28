@@ -74,6 +74,19 @@ input already dequantized rather than a `(codes, scale)` pair — in fake-quant
 training there's no integer matmul to feed, so the folded form is just the
 readable one, and it composes cleanly with the weight fake-quant.
 
+## Memory note — gradient checkpointing
+
+Activation quant adds activation-sized (`batch × seq × d`) intermediates that
+autograd retains for backward across all 24 body layers — enough extra live
+memory to OOM the `t3.small` fleet box (3.7 GiB, no swap) at step ~5 on the
+first attempt. Fix: `--grad-checkpoint` recomputes each block's activations in
+backward instead of storing them. It is **numerically transparent** (same
+forward, deterministic blocks, no dropout → bit-identical loss curve and
+gradients — locked by `test_grad_checkpoint_run_matches_plain_run`), so the
+008-vs-007 **ppl** comparison is unaffected. The **only** cost is ~30% more
+compute, so 008's `timing` line (steps/sec, wall-clock) is **not** directly
+comparable to 007's — note this in `results.md`; the ppl axis is what matters.
+
 ## Baselines (all on 005's 20-fixed-batch harness, 002 checkpoint axis)
 
 - **007 (W1.58, A16-fp):** val loss **3.9649 / ppl 52.7** — the ceiling 008

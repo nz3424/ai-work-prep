@@ -84,6 +84,50 @@ def test_quantize_activations_defaults_off_on_quantized_body():
     assert body and all(m.quantize_activations is False for m in body)
 
 
+def test_grad_checkpoint_produces_same_loss_as_plain_forward():
+    # Gradient checkpointing must be numerically transparent: same weights, same
+    # input, same batch -> identical forward loss. It trades memory for recompute,
+    # not accuracy, so the 008-vs-007 ppl comparison stays valid.
+    torch.manual_seed(0)
+    config = ModelConfig(vocab_size=50, context_length=16, d_model=16, n_layers=2,
+                         n_heads=2, d_ff=32, grad_checkpoint=True)
+    model = TinyTransformer(config)
+    model.train()  # checkpointing only engages in training mode
+    idx = torch.randint(0, config.vocab_size, (2, 10))
+    targets = torch.randint(0, config.vocab_size, (2, 10))
+
+    loss_on = F.cross_entropy(model(idx).view(-1, config.vocab_size), targets.view(-1))
+    config.grad_checkpoint = False
+    loss_off = F.cross_entropy(model(idx).view(-1, config.vocab_size), targets.view(-1))
+
+    assert torch.allclose(loss_on, loss_off, atol=1e-6)
+
+
+def test_grad_checkpoint_produces_same_gradients():
+    # The load-bearing guarantee: recomputed backward yields the SAME gradients,
+    # so the optimizer takes identical steps. If this holds, 008's loss curve is
+    # exactly what it would be with unlimited RAM.
+    torch.manual_seed(0)
+    config = ModelConfig(vocab_size=50, context_length=16, d_model=16, n_layers=2,
+                         n_heads=2, d_ff=32)
+    model = TinyTransformer(config)
+    model.train()
+    idx = torch.randint(0, config.vocab_size, (2, 10))
+    targets = torch.randint(0, config.vocab_size, (2, 10))
+
+    def grads_with(flag):
+        config.grad_checkpoint = flag
+        model.zero_grad(set_to_none=True)
+        loss = F.cross_entropy(model(idx).view(-1, config.vocab_size), targets.view(-1))
+        loss.backward()
+        return {n: p.grad.clone() for n, p in model.named_parameters()}
+
+    g_off = grads_with(False)
+    g_on = grads_with(True)
+    for name in g_off:
+        assert torch.allclose(g_off[name], g_on[name], atol=1e-5), f"grad mismatch: {name}"
+
+
 def test_different_inputs_produce_different_logits():
     config = ModelConfig(vocab_size=50, context_length=16, d_model=16, n_layers=2, n_heads=2, d_ff=32)
     model = TinyTransformer(config)

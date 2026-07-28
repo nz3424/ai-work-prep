@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 import torch
 import torch.nn as nn
+import torch.utils.checkpoint
 
 from src.attention import CausalSelfAttention
 from src.ternary_quant import make_linear
@@ -15,6 +16,7 @@ class ModelConfig:
     d_ff: int = 512
     quantize_linears: bool = False
     quantize_activations: bool = False
+    grad_checkpoint: bool = False
 
 class TransformerBlock(nn.Module):
     def __init__(self, config: ModelConfig):
@@ -52,7 +54,13 @@ class TinyTransformer(nn.Module):
 
         x = token_embeddings
         for block in self.blocks:
-            x = block(x)
+            if self.config.grad_checkpoint and self.training:
+                # Recompute block activations in backward instead of storing
+                # them — trades ~30% compute for a large drop in peak memory.
+                # Numerically transparent (deterministic block, no dropout).
+                x = torch.utils.checkpoint.checkpoint(block, x, use_reentrant=False)
+            else:
+                x = block(x)
         x = self.ln(x)
         logits = self.head(x)
         return logits
