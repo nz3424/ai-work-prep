@@ -50,6 +50,22 @@ def test_checkpoint_is_saved_and_loadable(tmp_path):
     reloaded_model.load_state_dict(checkpoint["model_state_dict"])  # raises on shape mismatch
 
 
+def test_quantize_activations_persists_to_saved_model_config(tmp_path):
+    # Load-bearing: the flag must survive into the checkpoint's model_config,
+    # or eval on the 005 harness reconstructs an activation-FP model and the
+    # 66.6/627/52.7 measurement axis silently breaks.
+    result = train_model(_tiny_config(tmp_path, steps=20, quantize_linears=True,
+                                      quantize_activations=True))
+
+    checkpoint = torch.load(result.checkpoint_path, map_location="cpu")
+    assert checkpoint["model_config"]["quantize_activations"] is True
+
+    # And it round-trips: rebuilding from the saved config yields the quantized
+    # forward pass eval depends on.
+    reloaded = ModelConfig(**checkpoint["model_config"])
+    assert reloaded.quantize_activations is True
+
+
 def test_get_batch_shapes_and_next_token_shift():
     # data[i] == i, so for any valid window y must equal x + 1 elementwise —
     # this pins the shape *and* the "y is x shifted one position later"

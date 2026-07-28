@@ -25,18 +25,31 @@ def int8_absmax(w: torch.Tensor, eps: float = 1e-5) -> tuple[torch.Tensor, torch
     w_tilde = ste_round(w / (s + eps)).clamp(-127, 127)
     return w_tilde, s
 
+def int8_activation(x: torch.Tensor, eps: float = 1e-5) -> torch.Tensor:
+    """INT8 per-token absmax fake-quant. Returns the dequantized activation on
+    the 8-bit grid (real-valued); STE carries the gradient straight through."""
+    gamma = x.abs().amax(dim=-1, keepdim=True)
+    s = gamma / 127
+    x_tilde = ste_round(x / (s + eps)).clamp(-127, 127)
+    return x_tilde * (s + eps)
+
 class BitLinear(nn.Linear):
-    def __init__(self, in_features, out_features, bias=True, quant_fn=ternary_absmean):
+    def __init__(self, in_features, out_features, bias=True, quant_fn=ternary_absmean, quantize_activations: bool = False):
         super().__init__(in_features, out_features, bias=bias)
         self.quant_fn = quant_fn
+        self.quantize_activations = quantize_activations
 
     def forward(self, x):
         codes, scale = self.quant_fn(self.weight)
+        if self.quantize_activations:
+            x = int8_activation(x)
         out = scale * F.linear(x, codes)
         if self.bias is not None:
             out = out + self.bias
         return out
 
-def make_linear(quantize: bool, in_features: int, out_features: int, bias: bool = True):
-    cls = BitLinear if quantize else nn.Linear
-    return cls(in_features, out_features, bias=bias)
+def make_linear(quantize: bool, in_features: int, out_features: int, bias: bool = True, quantize_activations: bool = False) -> nn.Module:
+    if quantize:
+        return BitLinear(in_features, out_features, bias=bias, quantize_activations=quantize_activations)
+    else:
+        return nn.Linear(in_features, out_features, bias=bias)

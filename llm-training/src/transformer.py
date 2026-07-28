@@ -14,17 +14,18 @@ class ModelConfig:
     n_heads: int = 4
     d_ff: int = 512
     quantize_linears: bool = False
+    quantize_activations: bool = False
 
 class TransformerBlock(nn.Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
         self.ln1 = nn.LayerNorm(config.d_model)
-        self.attention = CausalSelfAttention(config.d_model, config.n_heads, quantize_linears=config.quantize_linears)
+        self.attention = CausalSelfAttention(config.d_model, config.n_heads, quantize_linears=config.quantize_linears, quantize_activations=config.quantize_activations)
         self.ln2 = nn.LayerNorm(config.d_model)
         self.ffn = nn.Sequential(
-            make_linear(config.quantize_linears, config.d_model, config.d_ff),
+            make_linear(config.quantize_linears, config.d_model, config.d_ff, quantize_activations=config.quantize_activations),
             nn.GELU(),
-            make_linear(config.quantize_linears, config.d_ff, config.d_model),
+            make_linear(config.quantize_linears, config.d_ff, config.d_model, quantize_activations=config.quantize_activations),
         )
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x is (batch, seq_len, d_model) in, same shape out

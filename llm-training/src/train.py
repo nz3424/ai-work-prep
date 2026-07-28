@@ -27,6 +27,7 @@ class TrainConfig:
     val_fraction: float = 0.1
     eval_interval: int = 50
     quantize_linears: bool = False
+    quantize_activations: bool = False
     load_tokenizer_path: str | None = None
 
 @dataclass
@@ -95,7 +96,8 @@ def train_model(config: TrainConfig) -> TrainResult:
             n_layers=config.n_layers,
             n_heads=config.n_heads,
             d_ff=config.d_ff,
-            quantize_linears=config.quantize_linears
+            quantize_linears=config.quantize_linears,
+            quantize_activations=config.quantize_activations, 
         )
         model = TinyTransformer(model_config)
         optimizer = torch.optim.AdamW(model.parameters(), lr=config.lr)
@@ -163,6 +165,7 @@ def _parse_args() -> TrainConfig:
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--log-path", default=None)
     parser.add_argument("--quantize-linears", action="store_true", help="Quantize linear layers in the transformer body (not embedding or head).")
+    parser.add_argument("--quantize-activations", action="store_true", help="Quantize activations in the transformer body (not embedding or head).")
     parser.add_argument("--load-tokenizer-path", default=None, help="Path to load an existing tokenizer from, instead of training a new one.")
 
     args = parser.parse_args()
@@ -178,6 +181,7 @@ def _parse_args() -> TrainConfig:
         seed=args.seed,
         log_path=args.log_path,
         quantize_linears=args.quantize_linears,
+        quantize_activations=args.quantize_activations,
         load_tokenizer_path=args.load_tokenizer_path
     )
 

@@ -4,6 +4,7 @@ import pytest
 import torch
 import torch.nn.functional as F
 
+from src.ternary_quant import BitLinear
 from src.transformer import ModelConfig, TinyTransformer
 
 
@@ -58,6 +59,29 @@ def test_gradients_flow_to_all_parameters():
     # final head) is constructed but never actually used in forward().
     for name, param in model.named_parameters():
         assert param.grad is not None, f"{name} received no gradient"
+
+
+def test_quantize_activations_reaches_all_body_bitlinears():
+    # The flag must thread through every body projection: q/k/v/out (4) + the
+    # two FFN linears (2) per layer. Head and embedding stay FP32.
+    config = ModelConfig(vocab_size=50, context_length=16, d_model=16, n_layers=2,
+                         n_heads=2, d_ff=32, quantize_linears=True,
+                         quantize_activations=True)
+    model = TinyTransformer(config)
+
+    body = [m for m in model.modules() if isinstance(m, BitLinear)]
+    assert len(body) == config.n_layers * 6  # q,k,v,out + 2 ffn per layer
+    assert all(m.quantize_activations for m in body)
+    assert not isinstance(model.head, BitLinear)  # head held FP32
+
+
+def test_quantize_activations_defaults_off_on_quantized_body():
+    # Quantizing weights must NOT silently enable activation quant.
+    config = ModelConfig(vocab_size=50, context_length=16, d_model=16, n_layers=2,
+                         n_heads=2, d_ff=32, quantize_linears=True)
+    model = TinyTransformer(config)
+    body = [m for m in model.modules() if isinstance(m, BitLinear)]
+    assert body and all(m.quantize_activations is False for m in body)
 
 
 def test_different_inputs_produce_different_logits():

@@ -1,7 +1,14 @@
 import torch
 import torch.nn.functional as F
 
-from src.ternary_quant import BitLinear, int8_absmax, ste_round, ternary_absmean
+from src.ternary_quant import (
+    BitLinear,
+    int8_absmax,
+    int8_activation,
+    make_linear,
+    ste_round,
+    ternary_absmean,
+)
 
 
 def test_ste_round_forward_is_round():
@@ -51,6 +58,44 @@ def test_int8_absmax_roundtrips_near_identity():
     assert (approx - w).abs().max() < scale  # error bounded by one step
 
 
+def test_int8_activation_scales_per_token():
+    # THE experiment-defining behavior. Two tokens (rows) with wildly different
+    # magnitudes: per-token absmax lets each keep its OWN resolution, so the
+    # small token survives. A single per-tensor scale (driven by the large
+    # token's ~120) would round the small token's ~0.01 values all to zero.
+    x = torch.tensor([
+        [0.01, -0.02, 0.015, -0.008],   # small token
+        [80.0, -120.0, 40.0, -100.0],   # large token
+    ])
+    xq = int8_activation(x)
+
+    # Each row is within one quantization step of ITS OWN absmax scale.
+    step_small = x[0].abs().max() / 127
+    step_large = x[1].abs().max() / 127
+    assert (xq[0] - x[0]).abs().max() <= step_small
+    assert (xq[1] - x[1]).abs().max() <= step_large
+
+    # And the small token is emphatically NOT crushed to zero (the per-tensor
+    # failure mode): it retains real signal.
+    assert xq[0].abs().max() > 0
+
+
+def test_int8_activation_is_ste():
+    # Gradient must reach x, or the activations feeding the quantizer never
+    # train. round() has zero gradient a.e.; the STE is what saves it.
+    x = torch.tensor([[0.4, -0.4, 0.05]], requires_grad=True)
+    int8_activation(x).sum().backward()
+    assert x.grad is not None and x.grad.abs().sum() > 0
+
+
+def test_int8_activation_zero_token_stays_finite():
+    # An all-zero token has gamma == 0; the eps guard is exactly what stops 0/0.
+    x = torch.zeros(2, 4)
+    xq = int8_activation(x)
+    assert torch.isfinite(xq).all()
+    assert torch.equal(xq, torch.zeros_like(x))
+
+
 def test_bitlinear_forward_equals_scale_times_ternary_matmul():
     torch.manual_seed(0)
     layer = BitLinear(8, 4, bias=False)
@@ -60,10 +105,43 @@ def test_bitlinear_forward_equals_scale_times_ternary_matmul():
     assert torch.allclose(layer(x), expected, atol=1e-6)
 
 
+def test_bitlinear_quantizes_activations_when_enabled():
+    # With activation quant on, forward = weight-quantized matmul applied to the
+    # INT8-fake-quantized input. (Default-off is guarded by the test above.)
+    torch.manual_seed(0)
+    layer = BitLinear(8, 4, bias=False, quantize_activations=True)
+    x = torch.randn(3, 8)
+    codes, scale = ternary_absmean(layer.weight)
+    expected = scale * F.linear(int8_activation(x), codes)
+    assert torch.allclose(layer(x), expected, atol=1e-6)
+
+
+def test_bitlinear_activation_quant_gradient_flows_to_input():
+    # STE must survive composition: gradient reaches x through both quantizers.
+    layer = BitLinear(8, 4, bias=False, quantize_activations=True)
+    x = torch.randn(3, 8, requires_grad=True)
+    layer(x).sum().backward()
+    assert x.grad is not None and x.grad.abs().sum() > 0
+
+
 def test_bitlinear_gradient_flows_to_weight():
     layer = BitLinear(8, 4, bias=False)
     layer(torch.randn(3, 8)).sum().backward()
     assert layer.weight.grad is not None and layer.weight.grad.abs().sum() > 0
+
+
+def test_make_linear_forwards_activation_quant_flag():
+    # The plumbing seam: make_linear must pass quantize_activations into the
+    # BitLinear it builds, else the transformer can never turn it on.
+    layer = make_linear(True, 8, 4, quantize_activations=True)
+    assert isinstance(layer, BitLinear)
+    assert layer.quantize_activations is True
+
+
+def test_make_linear_activation_quant_defaults_off():
+    layer = make_linear(True, 8, 4)
+    assert isinstance(layer, BitLinear)
+    assert layer.quantize_activations is False
 
 
 def test_bitlinear_int8_sanity_is_near_fp():

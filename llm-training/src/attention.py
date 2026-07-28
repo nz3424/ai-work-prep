@@ -22,17 +22,17 @@ def _apply_rope(x: torch.Tensor, cos: torch.Tensor,
     return x * cos + _rotate_half(x) * sin
 
 class CausalSelfAttention(nn.Module):
-    def __init__(self, d_model: int, n_heads: int, quantize_linears: bool = False):
+    def __init__(self, d_model: int, n_heads: int, quantize_linears: bool = False, quantize_activations: bool = False):
         super().__init__() 
         self.d_model = d_model
         self.n_heads = n_heads
         assert d_model % n_heads == 0, "d_model must be divisible by n_heads"
         self.d_head = d_model // n_heads
 
-        self.q_proj = make_linear(quantize_linears, d_model, d_model)
-        self.k_proj = make_linear(quantize_linears, d_model, d_model)
-        self.v_proj = make_linear(quantize_linears, d_model, d_model)
-        self.out_proj = make_linear(quantize_linears, d_model, d_model)
+        self.q_proj = make_linear(quantize_linears, d_model, d_model, quantize_activations = quantize_activations)
+        self.k_proj = make_linear(quantize_linears, d_model, d_model, quantize_activations = quantize_activations)
+        self.v_proj = make_linear(quantize_linears, d_model, d_model, quantize_activations = quantize_activations)
+        self.out_proj = make_linear(quantize_linears, d_model, d_model, quantize_activations = quantize_activations)
         
         # for rotary embeddings
         self.register_buffer("frequencies", torch.pow(10000, -torch.arange(0, self.d_head, 2) / self.d_head), persistent=False)
