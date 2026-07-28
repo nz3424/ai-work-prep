@@ -51,11 +51,11 @@ def add_lora(model):
     #   r, lora_alpha — capacity vs. regularization. Common start: r=8, alpha=16.
     #   lora_dropout — e.g. 0.05.  task_type="CAUSAL_LM".
     lora_cfg = LoraConfig(
-        # r=...,
-        # lora_alpha=...,
-        # target_modules=[...],
-        # lora_dropout=...,
-        # task_type="CAUSAL_LM",
+        r = 8,
+        lora_alpha = 16,
+        target_modules = ["q_proj", "v_proj"], # add more later
+        lora_dropout = 0.05,
+        task_type = "CAUSAL_LM"
     )
     model = get_peft_model(model, lora_cfg)
     model.print_trainable_parameters()   # sanity: should be a tiny % of 513.8M
@@ -69,18 +69,28 @@ def build_dataset(tok):
     ds = load_dataset("tatsu-lab/alpaca", split=f"train[:{N_EXAMPLES}]")
 
     def format_example(ex):
-        # TODO-YOU (decision 2): build the prompt string from ex["instruction"],
-        # ex["input"], ex["output"]. Decide your template (e.g. "### Instruction:\n..
-        # ### Response:\n"). Return dict with "prompt" (everything up to and
-        # including the response marker) and "answer" (ex["output"] + eos).
-        raise NotImplementedError("fill format_example")
+        if ex["input"]:
+            prompt = f"### Instruction:\n{ex['instruction']}\n### Input:\n{ex['input']}\n### Response:\n"
+        else:
+            prompt = f"### Instruction:\n{ex['instruction']}\n### Response:\n"
+        answer = ex["output"] + tok.eos_token
+        return {"prompt": prompt, "answer": answer}
+        
 
     def tokenize(ex):
         # TODO-YOU (decision 3): the teaching bit — SFT label masking.
         # Tokenize prompt and answer, concatenate into input_ids. Build `labels`
         # equal to input_ids but with the PROMPT positions set to -100 so loss is
         # computed only on the answer tokens. Truncate to MAX_LEN.
-        raise NotImplementedError("fill tokenize with -100 masking on prompt tokens")
+        prompt_ids = tok(ex["prompt"], add_special_tokens=False)["input_ids"]
+        answer_ids = tok(ex["answer"], add_special_tokens=False)["input_ids"]
+        input_ids = prompt_ids + answer_ids
+        labels = [-100] * len(prompt_ids) + answer_ids
+        # Truncate to MAX_LEN
+        input_ids = input_ids[:MAX_LEN]
+        labels = labels[:MAX_LEN]
+        return {"input_ids": input_ids, "labels": labels}
+
 
     ds = ds.map(format_example)
     ds = ds.map(tokenize, remove_columns=ds.column_names)
