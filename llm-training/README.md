@@ -50,10 +50,11 @@ exact target architecture.
       attention, activations) is actually doing and why
 
 **Stretch — ternary weight quantization (BitNet b1.58-style)**
-- [ ] Implement a `BitLinear`-equivalent layer with absmean ternary
-      quantization on top of the from-scratch model
-- [ ] Compare quantized vs. full-precision model: perplexity, memory
+- [x] Implement a `BitLinear`-equivalent layer with absmean ternary
+      quantization on top of the from-scratch model (exp 007, `src/ternary_quant.py`)
+- [x] Compare quantized vs. full-precision model: perplexity, memory
       footprint, and (conceptually) why the matmul is now multiplication-free
+      (exp 005 PTQ sweep + exp 007 QAT)
 - [ ] Write up, in your own words, why multiplication-free matmul is the
       specific property that makes ternary weights attractive for photonic
       hardware (light-based hardware handles addition/accumulation well but
@@ -61,15 +62,22 @@ exact target architecture.
 
 ## Status
 
-Infra done, core work not started (as of 2026-07-15). The `llm-training-fleet`
-Terraform plan (`terraform/`, `fleet/`) is fully built and applied for real on
-AWS: dedicated VPC, EC2 training box (currently `t3.small` — the design's
-`t3.medium` default is blocked by this account's Free Tier restriction), S3
-checkpoint bucket, and `fleet_start.sh`/`fleet_stop.sh`/`fleet_ssh.sh`. Verified
-end-to-end (SSH + deploy key + repo clone, S3 write/read via the instance's
-scoped IAM role, Elastic IP stability across a stop/start cycle) and left
-stopped. None of the Core/Stretch tasks above (tokenizer, transformer,
-training loop, ternary quantization) have been started yet.
+Core and Stretch both landed (as of 2026-07-27). The from-scratch stack
+(tokenizer, transformer, training loop) is built and trained, and the ternary
+quantization stretch goal is complete through experiment 007. Per-experiment
+missions, results, and eval harnesses live in `experiments/NNN-*/`.
+
+Headline quantization result (all on the same 20-fixed-batch axis, 002
+checkpoint): FP32 baseline **ppl 66.6**; post-training ternary (005) collapses
+to **ppl 627** — you cannot PTQ your way to ternary; QAT-from-scratch with STE
+(007, `BitLinear`) recovers to **ppl 52.7**, *below* the FP32 baseline. That is
+BitNet's thesis in miniature — train in low precision, don't quantize after.
+
+Infra: the `llm-training-fleet` Terraform plan (`terraform/`, `fleet/`) is fully
+built and applied on AWS — dedicated VPC, EC2 training box (`t3.small`; the
+design's `t3.medium` default is blocked by this account's Free Tier
+restriction), S3 checkpoint bucket, and `fleet_start.sh`/`fleet_stop.sh`/
+`fleet_ssh.sh` — verified end-to-end and stopped when idle.
 
 ## Notes
 
