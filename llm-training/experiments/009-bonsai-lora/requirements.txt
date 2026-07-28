@@ -1,0 +1,20 @@
+# HuggingFace env for the Bonsai experiments (exp 009).
+# Separate from llm-training/requirements.txt (that one is the from-scratch fleet).
+#
+# Rebuild the venv from a clean checkout:
+#   cd llm-training
+#   python3 -m venv .venv-hf
+#   .venv-hf/bin/pip install -r experiments/009-bonsai-lora/requirements.txt
+#
+# transformers is pinned to 4.x because Bonsai's trust_remote_code modeling
+# file imports LossKwargs, which was removed in transformers 5.x.
+# NOTE: trl is intentionally excluded — LoRA runs on peft + transformers Trainer,
+# and trl>=4.56 conflicts with the transformers pin.
+
+torch==2.13.0
+transformers==4.48.3
+peft==0.20.0
+datasets==5.0.1
+accelerate==1.14.0
+sentencepiece==0.2.2
+protobuf==7.35.1
