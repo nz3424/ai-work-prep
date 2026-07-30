@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from pathlib import Path
 from src.tokenizer import BPETokenizer
 from src.transformer import ModelConfig, TinyTransformer
+from src.moe import MoEFeedForward
 @dataclass
 
 class TrainConfig:
@@ -30,6 +31,10 @@ class TrainConfig:
     quantize_activations: bool = False
     grad_checkpoint: bool = False
     load_tokenizer_path: str | None = None
+    use_moe: bool = False
+    n_experts: int = 4 
+    top_k: int = 2
+    moe_aux_loss_coef: float = 0.01
 
 @dataclass
 class TrainResult:
@@ -100,6 +105,9 @@ def train_model(config: TrainConfig) -> TrainResult:
             quantize_linears=config.quantize_linears,
             quantize_activations=config.quantize_activations,
             grad_checkpoint=config.grad_checkpoint,
+            use_moe=config.use_moe,
+            n_experts=config.n_experts,
+            top_k=config.top_k,
         )
         model = TinyTransformer(model_config)
         optimizer = torch.optim.AdamW(model.parameters(), lr=config.lr)
@@ -111,6 +119,7 @@ def train_model(config: TrainConfig) -> TrainResult:
             x, y = get_batch(train_data, config.context_length, config.batch_size, generator)
             logits = model(x) # logits is (batch, context_length, vocab_size)
             loss = F.cross_entropy(logits.view(-1,model_config.vocab_size), y.view(-1))
+            loss = loss + model.collect_moe_aux_loss() * config.moe_aux_loss_coef
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -126,8 +135,15 @@ def train_model(config: TrainConfig) -> TrainResult:
                 model.train()
                 val_losses[step] = val_loss.item()
                 line += f" val_loss {val_loss.item():.4f}"
-
+                if model_config.use_moe:
+                    moe_blocks = [b for b in model.blocks if isinstance(b.ffn, MoEFeedForward)]
+                    fracs = torch.stack([(b.ffn.last_gate_weights > 0).float().mean(dim=0) for b in moe_blocks])
+                    expert_frac = fracs.mean(dim=0)
+                    raw_aux = model.collect_moe_aux_loss().item()
+                    line += f" expert_frac [{', '.join(f'{v:.2f}' for v in expert_frac.tolist())}] aux {raw_aux:.4f}"
             emit(line)
+            
+            
 
         training_seconds = time.perf_counter() - training_start
         total_seconds = time.perf_counter() - run_start
@@ -170,6 +186,10 @@ def _parse_args() -> TrainConfig:
     parser.add_argument("--quantize-activations", action="store_true", help="Quantize activations in the transformer body (not embedding or head).")
     parser.add_argument("--grad-checkpoint", action="store_true", help="Recompute transformer-block activations in backward to cut peak memory (numerically transparent).")
     parser.add_argument("--load-tokenizer-path", default=None, help="Path to load an existing tokenizer from, instead of training a new one.")
+    parser.add_argument("--use-moe", action="store_true", help="Use Mixture of Experts (MoE) feedforward layers instead of standard feedforward layers.")
+    parser.add_argument("--n-experts", type=int, default=4, help="Number of experts in MoE feedforward layers.")
+    parser.add_argument("--top-k", type=int, default=2, help="Top-k experts to use in MoE feedforward layers.")
+    parser.add_argument("--moe-aux-loss-coef", type=float, default=0.01, help="Coefficient for the auxiliary loss from MoE feedforward layers.")
 
     args = parser.parse_args()
     return TrainConfig(

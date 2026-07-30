@@ -21,7 +21,6 @@ class ModelConfig:
     use_moe: bool = False
     n_experts: int = 4
     top_k: int = 2
-    moe_aux_loss_coef: float = 0.01
 
 class TransformerBlock(nn.Module):
     def __init__(self, config: ModelConfig):
