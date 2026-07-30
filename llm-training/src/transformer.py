@@ -6,6 +6,7 @@ import torch.utils.checkpoint
 
 from src.attention import CausalSelfAttention
 from src.ternary_quant import make_linear
+from src.moe import MoEFeedForward
 @dataclass
 class ModelConfig:
     vocab_size: int
@@ -28,11 +29,14 @@ class TransformerBlock(nn.Module):
         self.ln1 = nn.LayerNorm(config.d_model)
         self.attention = CausalSelfAttention(config.d_model, config.n_heads, quantize_linears=config.quantize_linears, quantize_activations=config.quantize_activations)
         self.ln2 = nn.LayerNorm(config.d_model)
-        self.ffn = nn.Sequential(
-            make_linear(config.quantize_linears, config.d_model, config.d_ff, quantize_activations=config.quantize_activations),
-            nn.GELU(),
-            make_linear(config.quantize_linears, config.d_ff, config.d_model, quantize_activations=config.quantize_activations),
-        )
+        if config.use_moe:
+            self.ffn = MoEFeedForward(config)
+        else:
+            self.ffn = nn.Sequential(
+                make_linear(config.quantize_linears, config.d_model, config.d_ff, quantize_activations=config.quantize_activations),
+                nn.GELU(),
+                make_linear(config.quantize_linears, config.d_ff, config.d_model, quantize_activations=config.quantize_activations),
+            )
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x is (batch, seq_len, d_model) in, same shape out
         x = x + self.attention(self.ln1(x))
@@ -49,6 +53,7 @@ class TinyTransformer(nn.Module):
         self.ln = nn.LayerNorm(config.d_model)
         #* check if we should have bias
         self.head = nn.Linear(config.d_model, config.vocab_size, bias=False)
+
     def forward(self, idx: torch.Tensor) -> torch.Tensor: 
     # idx is (batch, seq_len) of token ids, out is (batch, seq_len, vocab_size) logits
     # must also expose self.config — train.py/generate.py read .config.context_length
@@ -68,4 +73,14 @@ class TinyTransformer(nn.Module):
         x = self.ln(x)
         logits = self.head(x)
         return logits
+    
+    def collect_moe_aux_loss(self) -> torch.Tensor:
+        aux_losses = torch.tensor(0.0)
+        if not self.config.use_moe:
+            return aux_losses
+
+        for block in self.blocks:
+            if isinstance(block.ffn, MoEFeedForward):
+                aux_losses += block.ffn.last_aux_loss
+        return aux_losses
   
