@@ -1,6 +1,22 @@
 import torch
 
-from src.train import TrainConfig, train_model
+from src.train import TrainConfig, train_model, _parse_args
+
+
+def test_cli_flags_thread_moe_into_trainconfig(monkeypatch):
+    # Regression: the --use-moe family of flags must actually reach TrainConfig.
+    # A prior bug parsed them but dropped them from the returned config, so
+    # `--use-moe` runs silently trained a dense model.
+    monkeypatch.setattr(
+        "sys.argv",
+        ["train.py", "--use-moe", "--n-experts", "8", "--top-k", "3",
+         "--moe-aux-loss-coef", "0.02"],
+    )
+    cfg = _parse_args()
+    assert cfg.use_moe is True
+    assert cfg.n_experts == 8
+    assert cfg.top_k == 3
+    assert cfg.moe_aux_loss_coef == 0.02
 
 
 def test_moe_training_runs_and_loss_decreases(tmp_path):

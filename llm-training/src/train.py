@@ -206,7 +206,11 @@ def _parse_args() -> TrainConfig:
         quantize_linears=args.quantize_linears,
         quantize_activations=args.quantize_activations,
         grad_checkpoint=args.grad_checkpoint,
-        load_tokenizer_path=args.load_tokenizer_path
+        load_tokenizer_path=args.load_tokenizer_path,
+        use_moe=args.use_moe,
+        n_experts=args.n_experts,
+        top_k=args.top_k,
+        moe_aux_loss_coef=args.moe_aux_loss_coef,
     )
 
 
