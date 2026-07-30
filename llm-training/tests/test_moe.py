@@ -1,6 +1,6 @@
 import torch
 
-from src.moe import MoEFeedForward
+from src.moe import MoEFeedForward, load_balance_loss
 from src.transformer import ModelConfig
 
 
@@ -56,3 +56,36 @@ def test_unselected_experts_do_not_affect_output():
             p.add_(100.0)
     out_after = moe(x)
     assert torch.allclose(out_before, out_after, atol=1e-5)
+
+
+def test_balanced_uniform_routing_gives_minimum_aux():
+    # N=4 experts, top_k=1, one token per expert, uniform gate probs.
+    # f_i = 1/4 (each expert gets one of four tokens), P_i = 1/4.
+    # aux = N * sum_i f_i * P_i = 4 * (4 * (1/4)*(1/4)) = 1.0  -> the balanced minimum.
+    n_experts = 4
+    gate_probs = torch.full((4, n_experts), 0.25)
+    topi = torch.tensor([[0], [1], [2], [3]])
+    aux = load_balance_loss(gate_probs, topi, n_experts)
+    assert aux.shape == ()  # scalar
+    assert torch.isclose(aux, torch.tensor(1.0), atol=1e-5)
+
+
+def test_collapsed_routing_has_higher_aux_than_balanced():
+    n_experts = 4
+    # Collapsed: every token routed to expert 0, and probs concentrated there.
+    collapsed_probs = torch.tensor([[0.7, 0.1, 0.1, 0.1]] * 4)
+    collapsed_topi = torch.zeros(4, 1, dtype=torch.long)
+    collapsed = load_balance_loss(collapsed_probs, collapsed_topi, n_experts)
+    # Balanced reference.
+    balanced = load_balance_loss(torch.full((4, n_experts), 0.25),
+                                 torch.tensor([[0], [1], [2], [3]]), n_experts)
+    assert collapsed > balanced
+
+
+def test_aux_is_non_negative_scalar_after_forward():
+    torch.manual_seed(0)
+    moe = MoEFeedForward(_cfg())
+    moe(torch.randn(2, 5, 16))
+    assert moe.last_aux_loss.shape == ()
+    assert moe.last_aux_loss.item() >= 0.0
+    assert torch.isfinite(moe.last_aux_loss)
