@@ -73,6 +73,14 @@ to **ppl 627** — you cannot PTQ your way to ternary; QAT-from-scratch with STE
 (007, `BitLinear`) recovers to **ppl 52.7**, *below* the FP32 baseline. That is
 BitNet's thesis in miniature — train in low precision, don't quantize after.
 
+Architecture exploration beyond the ternary track: **exp 010** swaps the dense
+FFN for a top-2-of-4 routed **Mixture of Experts** (compute-matched, FP32,
+Switch/GShard load-balancing). Load balancing worked cleanly (all 4 experts
+~evenly used, no collapse), but the 4× FFN params overfit the tiny corpus — val
+bottomed at **ppl ~43** (step 1200, beating the 66.6 dense baseline) then rose to
+a shipped **ppl 118.5**. Lesson: capacity without data overfits; **exp 011**
+(bigger corpus + vocab, own dense baseline) is the room-to-specialize follow-up.
+
 Infra: the `llm-training-fleet` Terraform plan (`terraform/`, `fleet/`) is fully
 built and applied on AWS — dedicated VPC, EC2 training box (`t3.small`; the
 design's `t3.medium` default is blocked by this account's Free Tier

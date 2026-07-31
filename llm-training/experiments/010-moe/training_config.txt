@@ -1,0 +1,15 @@
+experiment=010-moe
+baseline=002-rope
+change_under_test=dense_ffn_to_moe_ffn
+moe=top2_of_4_experts_compute_matched
+router=fp32_nn_linear
+experts=fp32_make_linear_quantize_linears_false
+load_balance=switch_gshard_aux_loss
+moe_aux_loss_coef=0.01
+memory=grad_checkpoint_blocks
+tokenizer=loaded_from_002-rope
+steps=3000
+batch_size=32
+context_length=256
+lr=3e-4
+seed=0
